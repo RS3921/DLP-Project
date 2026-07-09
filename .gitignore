@@ -1,0 +1,30 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments and local runtimes
+.venv/
+venv/
+env/
+
+# Local server/runtime output
+*.log
+server_runtime.log
+
+# Local vault state, keys, and enrolled agent secrets
+my_vault/
+
+# Editor and OS metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build/package output
+build/
+dist/
+*.egg-info/

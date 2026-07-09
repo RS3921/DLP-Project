@@ -1,0 +1,1503 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VAULT-X · Enterprise DLP Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0000;
+      --surface: rgba(18,4,4,0.95);
+      --surface-2: rgba(22,6,6,0.97);
+      --surface-3: rgba(30,8,8,0.92);
+      --border: rgba(180,20,20,0.18);
+      --border-hi: rgba(220,40,40,0.38);
+      --text: #f5f0f0;
+      --text-dim: #a08080;
+      --text-faint: #5a3838;
+      --accent: #e02020;
+      --accent-glow: rgba(220,32,32,0.35);
+      --red: #ff3333;
+      --red-glow: rgba(255,51,51,0.3);
+      --red-soft: rgba(255,51,51,0.10);
+      --green: #22f0a0;
+      --green-soft: rgba(34,240,160,0.12);
+      --amber: #ffb740;
+      --amber-soft: rgba(255,183,64,0.12);
+      --cyan: #ff6666;
+      --purple: #ff8888;
+      --shadow: 0 24px 64px rgba(0,0,0,0.65);
+      --mono: 'JetBrains Mono', monospace;
+      --display: 'Inter', sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { height: 100%; }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--display);
+      overflow-x: hidden;
+    }
+
+    /* ── REACTIVE BG CANVAS ── */
+    #bgCanvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .noise-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.45;
+    }
+
+    /* ── LAYOUT ── */
+    .app {
+      position: relative;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: rgba(14,2,2,0.88);
+      backdrop-filter: blur(24px);
+      border-right: 1px solid var(--border);
+      padding: 20px 14px;
+      gap: 20px;
+      overflow-y: auto;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--border-hi);
+      border-radius: 12px;
+      background: rgba(180,20,20,0.10);
+      position: relative;
+      overflow: hidden;
+    }
+    .brand::before {
+      content: '';
+      position: absolute;
+      top: -30px; right: -30px;
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: var(--accent-glow);
+      filter: blur(30px);
+    }
+    .brand-logo {
+      width: 42px; height: 42px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--red));
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      font-weight: 900;
+      flex-shrink: 0;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .brand-text h1 { font-size: 17px; font-weight: 900; letter-spacing: -0.02em; line-height: 1; }
+    .brand-text span { font-size: 11px; color: var(--text-dim); font-weight: 400; }
+    .sidebar-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      padding: 0 6px;
+    }
+    .nav { display: grid; gap: 3px; }
+    .nav-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 9px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-dim);
+      font-family: var(--display);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+    }
+    .nav-btn .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+    .nav-btn:hover { background: var(--surface-3); color: var(--text); border-color: var(--border); }
+    .nav-btn.active {
+      background: rgba(200,20,20,0.15);
+      color: #fff;
+      border-color: var(--border-hi);
+    }
+    .nav-btn.active .nav-icon { filter: drop-shadow(0 0 6px var(--accent)); }
+    .nav-badge {
+      margin-left: auto;
+      background: var(--red);
+      color: #fff;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 7px;
+      min-width: 20px;
+      text-align: center;
+    }
+    .sidebar-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 2px 0;
+    }
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+    .sidebar-footer .status-dot {
+      display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      margin-right: 5px;
+    }
+
+    /* ── MAIN ── */
+    .main {
+      padding: 22px 26px 40px;
+      min-width: 0;
+      overflow-x: hidden;
+    }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+    .page-title { flex: 1; }
+    .page-eyebrow {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 5px;
+    }
+    .page-title h2 {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+    .page-title p { color: var(--text-dim); font-size: 13px; font-weight: 400; line-height: 1.5; }
+    .authbox {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      min-width: 340px;
+      backdrop-filter: blur(16px);
+    }
+    .authrow { display: flex; gap: 8px; margin-bottom: 8px; }
+    .authrow input {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 9px 12px;
+      font-family: var(--mono);
+      font-size: 13px;
+      min-width: 0;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .authrow input:focus { border-color: var(--accent); }
+    .btn {
+      padding: 9px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-3);
+      color: var(--text);
+      font-family: var(--display);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn:hover { border-color: var(--accent); color: #fff; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 20px var(--accent-glow); }
+    .btn.primary:hover { filter: brightness(1.15); }
+    .btn.danger { background: var(--red-soft); border-color: var(--red); color: var(--red); }
+    .btn.danger:hover { background: var(--red); color: #fff; }
+    .btn.ghost { background: transparent; }
+    .auth-status { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+
+    /* ── PANELS ── */
+    .panel { display: none; }
+    .panel.active { display: block; animation: fadeSlide 0.3s ease; }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── METRIC CARDS ── */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0,1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .metric {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      backdrop-filter: blur(16px);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .metric:hover { border-color: var(--border-hi); transform: translateY(-2px); }
+    .metric::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0.6;
+    }
+    .metric-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+    .metric-value { font-size: 32px; font-weight: 900; line-height: 1; letter-spacing: -0.03em; }
+    .metric-foot { font-size: 11px; color: var(--text-faint); margin-top: 8px; }
+    .metric.red .metric-value { color: var(--red); }
+    .metric.green .metric-value { color: var(--green); }
+    .metric.amber .metric-value { color: var(--amber); }
+    .metric.cyan .metric-value { color: var(--cyan); }
+    .metric.purple .metric-value { color: var(--purple); }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      backdrop-filter: blur(16px);
+      overflow: hidden;
+    }
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px 0;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .card-head h3 { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
+    .card-body { padding: 0 18px 18px; }
+
+    /* ── GRID LAYOUTS ── */
+    .grid-2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 14px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; margin-bottom: 14px; }
+    .mb { margin-bottom: 14px; }
+
+    /* ── PILLS ── */
+    .pill {
+      display: inline-flex; align-items: center;
+      padding: 3px 9px; border-radius: 999px;
+      font-size: 11px; font-weight: 700;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      white-space: nowrap; margin: 2px 3px 2px 0;
+    }
+    .pill.online { border-color: #14532d; color: var(--green); background: var(--green-soft); }
+    .pill.offline { border-color: #71390a; color: var(--amber); background: var(--amber-soft); }
+    .pill.revoked { border-color: #7f1020; color: var(--red); background: var(--red-soft); }
+    .pill.blue { border-color: rgba(200,20,20,0.3); color: var(--cyan); background: rgba(200,20,20,0.07); }
+    .pill.accent { border-color: var(--border-hi); color: var(--accent); background: rgba(200,20,20,0.08); }
+    .pill.critical { color: var(--red); border-color: #7f1020; background: var(--red-soft); }
+    .pill.high { color: var(--red); border-color: #7f1020; background: var(--red-soft); }
+    .pill.medium { color: var(--amber); border-color: #713f12; background: var(--amber-soft); }
+    .pill.info { color: var(--green); border-color: #14532d; background: var(--green-soft); }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      background: rgba(10,12,22,0.8);
+      color: var(--text-faint);
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12.5px;
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(200,20,20,0.05); }
+    .td-main { font-weight: 700; font-size: 13px; }
+    .td-sub { color: var(--text-dim); font-size: 11px; font-family: var(--mono); margin-top: 2px; }
+
+    /* ── OU ANALYTICS ── */
+    .ou-grid { display: grid; gap: 10px; }
+    .ou-row {
+      display: grid;
+      grid-template-columns: 160px 1fr 60px 80px;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface-2);
+      transition: border-color 0.2s;
+    }
+    .ou-row:hover { border-color: var(--border-hi); }
+    .ou-name { font-weight: 800; font-size: 13px; }
+    .ou-path { font-size: 10px; color: var(--text-faint); font-family: var(--mono); margin-top: 2px; }
+    .ou-bar-wrap { height: 8px; background: rgba(255,255,255,0.06); border-radius: 999px; overflow: hidden; }
+    .ou-bar { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--cyan)); transition: width 1s cubic-bezier(.4,0,.2,1); }
+    .ou-count { font-size: 22px; font-weight: 900; color: var(--text); text-align: right; }
+    .ou-policy { font-size: 11px; color: var(--text-dim); }
+
+    /* ── USER DETAIL PANEL ── */
+    .user-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 8px;
+    }
+    .user-field {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-3);
+    }
+    .user-field-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
+    .user-field-val { font-size: 12px; font-family: var(--mono); color: var(--text); overflow-wrap: anywhere; }
+    .user-field-val.empty { color: var(--text-faint); font-style: italic; }
+
+    /* ── EVENTS ── */
+    .event-item {
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface-2);
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .event-item:hover { border-color: var(--border-hi); background: var(--surface-3); }
+    .event-item.active-event { border-color: var(--accent); }
+    .event-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 5px; }
+    .event-type { font-size: 13px; font-weight: 800; }
+    .event-type.critical, .event-type.high { color: var(--red); }
+    .event-type.medium { color: var(--amber); }
+    .event-type.info { color: var(--green); }
+    .event-meta { font-size: 11px; color: var(--text-dim); font-family: var(--mono); }
+    .event-reasons { font-size: 11px; color: var(--text-faint); margin-top: 5px; line-height: 1.5; }
+
+    /* ── CODE / PRE ── */
+    pre, code {
+      display: block;
+      background: rgba(0,0,0,0.55);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: #c8d4ff;
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 12px;
+      overflow: auto;
+      max-height: 520px;
+      line-height: 1.6;
+    }
+
+    /* ── TOOLBAR ── */
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 0 18px 12px; }
+    .toolbar input, .toolbar select {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 8px 12px;
+      font-family: var(--display);
+      font-size: 12px;
+      outline: none;
+      min-width: 200px;
+      transition: border-color 0.2s;
+    }
+    .toolbar input:focus, .toolbar select:focus { border-color: var(--accent); }
+    .toolbar select option { background: #120000; }
+
+    /* ── POLICY CARD ── */
+    .policy-item {
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface-2);
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .policy-item:hover { border-color: var(--border-hi); }
+    .policy-item.selected { border-color: var(--accent); background: rgba(200,20,20,0.07); }
+    .policy-name { font-size: 14px; font-weight: 800; margin-bottom: 8px; }
+
+    /* ── DONUT CHART ── */
+    .donut-wrap { display: flex; align-items: center; gap: 20px; padding: 10px 0; }
+    .donut-legend { display: grid; gap: 8px; flex: 1; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 999px; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state { color: var(--text-faint); font-size: 13px; padding: 20px 0; text-align: center; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 1240px) {
+      .metrics { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { height: auto; position: static; flex-direction: row; flex-wrap: wrap; }
+      .nav { flex-direction: row; flex-wrap: wrap; }
+      .sidebar-footer { display: none; }
+    }
+    @media (max-width: 600px) {
+      .main { padding: 14px; }
+      .metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .authbox { min-width: 0; width: 100%; }
+      .topbar { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="bgCanvas"></canvas>
+  <div class="noise-overlay"></div>
+
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">VX</div>
+        <div class="brand-text">
+          <h1>VAULT-X</h1>
+          <span>Enterprise DLP · AD Integrated</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="sidebar-label">Monitoring</div>
+        <nav class="nav">
+          <button class="nav-btn active" data-tab="overview"><span class="nav-icon">◆</span> Overview</button>
+          <button class="nav-btn" data-tab="users"><span class="nav-icon">👤</span> AD Users <span class="nav-badge" id="usersCount">-</span></button>
+          <button class="nav-btn" data-tab="ou"><span class="nav-icon">🗂</span> OU Analytics</button>
+          <button class="nav-btn" data-tab="devices"><span class="nav-icon">💻</span> Devices</button>
+          <button class="nav-btn" data-tab="events"><span class="nav-icon">⚡</span> Events <span class="nav-badge" id="eventsBadge">-</span></button>
+        </nav>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div>
+        <div class="sidebar-label">Management</div>
+        <nav class="nav">
+          <button class="nav-btn" data-tab="policies"><span class="nav-icon">🛡</span> Policies</button>
+          <button class="nav-btn" data-tab="ad"><span class="nav-icon">🔗</span> AD Config</button>
+          <button class="nav-btn" data-tab="ops"><span class="nav-icon">⚙</span> Agent Ops</button>
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        <span class="status-dot"></span> Console Active<br>
+        Server: <code style="font-size:10px;background:none;border:none;padding:0;color:var(--cyan)">127.0.0.1:8765</code><br>
+        Mode: <code style="font-size:10px;background:none;border:none;padding:0;color:var(--amber)">ADMIN ONLY</code>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <!-- TOPBAR -->
+      <div class="topbar">
+        <div class="page-title">
+          <div class="page-eyebrow" id="pageEyebrow">Security Operations</div>
+          <h2 id="pageTitle">Fleet Overview</h2>
+          <p id="pageSubtitle">Monitor Windows endpoints, AD users, OU analytics, policy assignment, and ML risk signals.</p>
+        </div>
+        <div class="authbox">
+          <div class="authrow">
+            <input id="apiKey" type="password" placeholder="Admin API key…">
+            <button class="btn primary" id="refreshBtn">↺ Refresh</button>
+          </div>
+          <div class="auth-status" id="authState">Enter admin key to load live console data.</div>
+        </div>
+      </div>
+
+      <!-- ════════════ OVERVIEW ════════════ -->
+      <section id="overview" class="panel active">
+        <div class="metrics">
+          <div class="metric green">
+            <div class="metric-label">Online Agents</div>
+            <div id="onlineAgents" class="metric-value">-</div>
+            <div class="metric-foot">Heartbeat within 5 min</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Managed Devices</div>
+            <div id="totalAgents" class="metric-value">-</div>
+            <div class="metric-foot">Enrolled endpoints</div>
+          </div>
+          <div class="metric red">
+            <div class="metric-label">Revoked</div>
+            <div id="revokedAgents" class="metric-value">-</div>
+            <div class="metric-foot">Blocked agent tokens</div>
+          </div>
+          <div class="metric cyan">
+            <div class="metric-label">Events</div>
+            <div id="eventCount" class="metric-value">-</div>
+            <div class="metric-foot">Stored telemetry</div>
+          </div>
+          <div class="metric purple">
+            <div class="metric-label">Policies</div>
+            <div id="policyCount" class="metric-value">-</div>
+            <div class="metric-foot">Active DLP policies</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head">
+              <h3>Recent Security Events</h3>
+              <button class="btn ghost" data-jump="events" style="font-size:12px;">View All →</button>
+            </div>
+            <div class="card-body" id="overviewEvents"><div class="empty-state">No data loaded.</div></div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <h3>Fleet Snapshot</h3>
+              <button class="btn ghost" data-jump="devices" style="font-size:12px;">View All →</button>
+            </div>
+            <div class="card-body" id="fleetSnapshot"><div class="empty-state">No data loaded.</div></div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-head"><h3>OU Distribution</h3></div>
+            <div class="card-body" id="ouQuickView"><div class="empty-state">No data loaded.</div></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Risk Summary</h3></div>
+            <div class="card-body" id="riskSummary"><div class="empty-state">No data.</div></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>AD Sync Status</h3></div>
+            <div class="card-body">
+              <div style="display:grid;gap:8px;font-size:12px;">
+                <div class="user-field"><div class="user-field-label">LDAPS Endpoint</div><div class="user-field-val">dc01.company.local:636</div></div>
+                <div class="user-field"><div class="user-field-label">Service Account</div><div class="user-field-val">svc-vaultx-ad-reader</div></div>
+                <div class="user-field"><div class="user-field-label">Access Mode</div><div class="user-field-val">Read-Only LDAP Sync</div></div>
+                <div class="user-field"><div class="user-field-label">Admin Login</div><div class="user-field-val">CN=VAULTX-Admins,OU=Security Groups</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ AD USERS ════════════ -->
+      <section id="users" class="panel">
+        <div class="toolbar" style="padding:0 0 14px;">
+          <input id="userSearch" placeholder="Search by name, UPN, SID, OU, department, group…">
+          <select id="userOuFilter"><option value="">All OUs</option></select>
+          <select id="userStatusFilter">
+            <option value="">All statuses</option>
+            <option value="enabled">Enabled</option>
+            <option value="disabled">Disabled</option>
+          </select>
+          <button class="btn ghost" id="clearUserFilter">Clear</button>
+        </div>
+
+        <div class="card mb">
+          <div class="card-head">
+            <h3>Active Directory User Registry</h3>
+            <span class="pill accent" id="userTableCount">0 users</span>
+          </div>
+          <div class="table-wrap">
+            <table id="userTable">
+              <thead>
+                <tr>
+                  <th>Identity</th>
+                  <th>UPN / SAM</th>
+                  <th>OU / Department</th>
+                  <th>Device</th>
+                  <th>Status</th>
+                  <th>SID</th>
+                  <th>AD Groups</th>
+                  <th>Last Seen</th>
+                  <th>Policy</th>
+                </tr>
+              </thead>
+              <tbody id="userTableBody"><tr><td colspan="9" class="empty-state">Load data with your API key.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- User detail drawer -->
+        <div class="card" id="userDetailCard" style="display:none;">
+          <div class="card-head">
+            <h3>Full AD User Profile</h3>
+            <button class="btn ghost" id="closeUserDetail" style="font-size:12px;">✕ Close</button>
+          </div>
+          <div class="card-body">
+            <div class="user-detail-grid" id="userDetailGrid"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ OU ANALYTICS ════════════ -->
+      <section id="ou" class="panel">
+        <div class="grid-2" style="margin-bottom:16px;">
+          <div class="card">
+            <div class="card-head">
+              <h3>Users per Organizational Unit</h3>
+              <span class="pill blue" id="ouTotalBadge">0 OUs</span>
+            </div>
+            <div class="card-body">
+              <div class="ou-grid" id="ouBarChart"><div class="empty-state">No data loaded.</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>OU → DLP Policy Mapping</h3></div>
+            <div class="card-body">
+              <div id="ouPolicyMap"><div class="empty-state">No data loaded.</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>OU Deep Dive — All Users per OU</h3>
+            <select id="ouSelect" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px 10px;font-family:var(--display);font-size:12px;"><option>Select an OU…</option></select>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>UPN</th><th>sAMAccountName</th><th>SID</th><th>Department</th><th>Device</th><th>Status</th><th>Last Seen</th></tr></thead>
+              <tbody id="ouUsersBody"><tr><td colspan="8" class="empty-state">Select an OU above.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ DEVICES ════════════ -->
+      <section id="devices" class="panel">
+        <div class="card">
+          <div class="card-head">
+            <h3>Managed Windows Endpoints</h3>
+            <span class="pill accent">Agent Token Protected</span>
+          </div>
+          <div class="toolbar">
+            <input id="deviceFilter" placeholder="Filter by hostname, user, OU, IP, policy…">
+            <button class="btn ghost" id="clearDeviceFilter">Clear</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Hostname</th>
+                  <th>Logged-in User</th>
+                  <th>OU / Department</th>
+                  <th>Status</th>
+                  <th>IP / Platform</th>
+                  <th>Computer SAM</th>
+                  <th>Distinguished Name</th>
+                  <th>Policy</th>
+                  <th>Trust</th>
+                </tr>
+              </thead>
+              <tbody id="agentsBody"><tr><td colspan="9" class="empty-state">No data loaded.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ EVENTS ════════════ -->
+      <section id="events" class="panel">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head">
+              <h3>Endpoint Events</h3>
+              <span class="pill critical">ML Scored</span>
+            </div>
+            <div class="toolbar">
+              <select id="severityFilter">
+                <option value="">All severities</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="info">Info</option>
+              </select>
+              <input id="eventFilter" placeholder="Filter event, agent, reason…">
+            </div>
+            <div class="card-body" style="padding-top:0;max-height:70vh;overflow-y:auto;" id="eventsBody">
+              <div class="empty-state">No data loaded.</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Event Detail</h3></div>
+            <div class="card-body" style="padding-top:0;">
+              <pre id="eventDetail">Select an event to inspect raw metadata, ML verdict, score, and reasons.</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ POLICIES ════════════ -->
+      <section id="policies" class="panel">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3>DLP Policy Inventory</h3></div>
+            <div class="card-body" id="policyCards"><div class="empty-state">No policies loaded.</div></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Policy JSON</h3></div>
+            <div class="card-body" style="padding-top:0;"><pre id="policyView">Select a policy to inspect.</pre></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════ AD CONFIG ════════════ -->
+      <section id="ad" class="panel">
+        <div class="grid-3">
+          <div class="card">
+            <div class="card-head"><h3>AD Source of Truth</h3></div>
+            <div class="card-body">
+              <p style="color:var(--text-dim);font-size:13px;line-height:1.6;margin-bottom:12px;">Windows Server AD manages users, computers, OUs, and groups. VAULT-X reads via LDAP/S and assigns policies.</p>
+              <code>LDAPS: dc01.company.local:636&#10;Account: svc-vaultx-ad-reader&#10;Mode: read-only sync&#10;Auth: Kerberos / NTLM</code>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>OU → Policy Mapping</h3></div>
+            <div class="card-body">
+              <p style="color:var(--text-dim);font-size:13px;line-height:1.6;margin-bottom:12px;">Finance, HR, and Engineering receive isolated DLP controls based on their AD OU.</p>
+              <code>OU=Finance     → finance_policy&#10;OU=Engineering → engineering_policy&#10;OU=HR          → hr_policy&#10;Domain Admins  → high_security</code>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Admin Role Groups</h3></div>
+            <div class="card-body">
+              <p style="color:var(--text-dim);font-size:13px;line-height:1.6;margin-bottom:12px;">AD group membership gates admin console access. Only VAULTX-Admins can access this UI.</p>
+              <code>VAULTX-Admins   → full access&#10;VAULTX-Analysts → events/alerts&#10;VAULTX-Auditors → read-only</code>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>AD-Ready Device Metadata (Live)</h3></div>
+          <div class="card-body" style="padding-top:0;"><pre id="adDeviceView">Load data to see AD-ready device metadata exported from enrolled agents.</pre></div>
+        </div>
+      </section>
+
+      <!-- ════════════ OPS ════════════ -->
+      <section id="ops" class="panel">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3>Agent Operations</h3></div>
+            <div class="card-body">
+              <p style="color:var(--text-dim);font-size:13px;line-height:1.6;margin-bottom:14px;">Rotate device tokens or revoke compromised laptops. These actions require the admin bearer key and are audit-logged.</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                <select id="agentSelect" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-family:var(--display);font-size:12px;"></select>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+                <button class="btn" id="rotateTokenBtn">↺ Rotate Token</button>
+                <button class="btn danger" id="revokeAgentBtn">✕ Revoke</button>
+                <button class="btn" id="restoreAgentBtn">✔ Restore</button>
+              </div>
+              <pre id="opsResult">No action yet.</pre>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Enrollment Operations</h3></div>
+            <div class="card-body">
+              <p style="color:var(--text-dim);font-size:13px;line-height:1.6;margin-bottom:14px;">Rotate the enrollment token before a new laptop rollout. Endpoint agents use this once, then receive their own scoped token.</p>
+              <button class="btn primary" id="rotateEnrollBtn">↺ Rotate Enrollment Token</button>
+              <pre id="enrollResult" style="margin-top:12px;">No token action yet.</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    /* ═══════════════════════════════════
+       REACTIVE BACKGROUND — MESH GRID + FLOATING NODES
+    ═══════════════════════════════════ */
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, nodes = [], mouse = { x: -9999, y: -9999 };
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+
+    function spawnNodes() {
+      nodes = [];
+      const count = Math.floor((W * H) / 18000);
+      for (let i = 0; i < count; i++) {
+        nodes.push({
+          x: Math.random() * W, y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.35,
+          vy: (Math.random() - 0.5) * 0.35,
+          r: Math.random() * 1.8 + 0.6,
+          hue: Math.random() < 0.6 ? 230 : Math.random() < 0.5 ? 355 : 190,
+        });
+      }
+    }
+
+    function drawBg() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Deep gradient
+      const grad = ctx.createRadialGradient(W*0.3, H*0.2, 0, W*0.5, H*0.5, W*0.8);
+      grad.addColorStop(0, 'rgba(18,24,60,0.9)');
+      grad.addColorStop(0.5, 'rgba(6,8,20,0.95)');
+      grad.addColorStop(1, 'rgba(3,4,10,1)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+
+      // Accent glow blobs
+      [
+        { x: W*0.15, y: H*0.2, c: 'rgba(200,20,20,0.07)' },
+        { x: W*0.85, y: H*0.7, c: 'rgba(255,59,107,0.05)' },
+        { x: W*0.5, y: H*0.9, c: 'rgba(200,20,20,0.04)' },
+      ].forEach(b => {
+        const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, W*0.35);
+        g.addColorStop(0, b.c);
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+      });
+
+      const CONN = 130;
+
+      // Draw connections
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x;
+          const dy = nodes[i].y - nodes[j].y;
+          const d = Math.sqrt(dx*dx + dy*dy);
+          if (d < CONN) {
+            const alpha = (1 - d / CONN) * 0.18;
+            ctx.strokeStyle = `rgba(200,20,20,${alpha})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
+            ctx.stroke();
+          }
+        }
+        // Mouse connections
+        const mdx = nodes[i].x - mouse.x;
+        const mdy = nodes[i].y - mouse.y;
+        const md = Math.sqrt(mdx*mdx + mdy*mdy);
+        if (md < 180) {
+          const alpha = (1 - md / 180) * 0.5;
+          ctx.strokeStyle = `rgba(255,59,107,${alpha})`;
+          ctx.lineWidth = 0.7;
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(mouse.x, mouse.y);
+          ctx.stroke();
+        }
+      }
+
+      // Draw nodes
+      nodes.forEach(n => {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${n.hue}, 80%, 70%, 0.6)`;
+        ctx.fill();
+      });
+    }
+
+    function updateNodes() {
+      nodes.forEach(n => {
+        n.x += n.vx; n.y += n.vy;
+        if (n.x < 0 || n.x > W) n.vx *= -1;
+        if (n.y < 0 || n.y > H) n.vy *= -1;
+      });
+    }
+
+    function loop() { drawBg(); updateNodes(); requestAnimationFrame(loop); }
+    window.addEventListener('resize', () => { resize(); spawnNodes(); });
+    document.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+    resize(); spawnNodes(); loop();
+
+    /* ═══════════════════════════════════
+       CONSOLE LOGIC
+    ═══════════════════════════════════ */
+    const PAGE_META = {
+      overview: { eyebrow: 'Security Operations', title: 'Fleet Overview', sub: 'Monitor Windows endpoints, AD users, OU structure, DLP policies, and live ML threat signals.' },
+      users:    { eyebrow: 'Active Directory', title: 'AD User Registry', sub: 'Full user data extracted from Windows Server AD — identity, OU, SID, groups, device, policy, status.' },
+      ou:       { eyebrow: 'Active Directory', title: 'OU Analytics', sub: 'Analyse all 50+ users distributed across Organizational Units. Map OUs to DLP policies and drill into per-OU user lists.' },
+      devices:  { eyebrow: 'Endpoint Management', title: 'Managed Devices', sub: 'Enrolled Windows laptops with full AD computer object metadata — DN, SAM, OU, managedBy user, policy, trust state.' },
+      events:   { eyebrow: 'Threat Detection', title: 'Security Events', sub: 'Endpoint telemetry with ML verdict, severity score, detection reasons, and raw event metadata.' },
+      policies: { eyebrow: 'DLP Management', title: 'Policy Inventory', sub: 'Server-side DLP policy objects. View rules, blocked extensions, mode, and OU/group assignments.' },
+      ad:       { eyebrow: 'Active Directory', title: 'AD Configuration', sub: 'LDAPS connection config, OU-to-policy mapping, admin role groups, and enrollment decision flow.' },
+      ops:      { eyebrow: 'Agent Management', title: 'Agent Operations', sub: 'Rotate tokens, revoke compromised endpoints, restore devices, manage enrollment token rotation.' },
+    };
+
+    let currentAgents = [], currentEvents = [], currentPolicies = [];
+
+    function setTab(name) {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+      document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === name));
+      const m = PAGE_META[name] || PAGE_META.overview;
+      document.getElementById('pageEyebrow').textContent = m.eyebrow;
+      document.getElementById('pageTitle').textContent = m.title;
+      document.getElementById('pageSubtitle').textContent = m.sub;
+    }
+
+    function esc(v) {
+      return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function fmtTime(ts) { if (!ts) return 'never'; return new Date(ts * 1000).toLocaleString(); }
+
+    function statusPill(a) {
+      if (a.revoked) return `<span class="pill revoked">revoked</span>`;
+      if (a.online)  return `<span class="pill online">● online</span>`;
+      return `<span class="pill offline">○ offline</span>`;
+    }
+    function mlPill(ev) {
+      const d = ev.ml_detection;
+      if (!d) return `<span class="pill">ML n/a</span>`;
+      const cls = (d.verdict === 'critical' || d.verdict === 'high') ? 'critical' : d.verdict === 'suspicious' ? 'medium' : 'info';
+      return `<span class="pill ${cls}">ML ${esc(d.verdict)} ${Math.round(d.score*100)}%</span>`;
+    }
+
+    /* ── Build synthetic AD user fields ── */
+    function buildUserFromAgent(a, idx) {
+      const names = ['Priya Sharma','Ravi Patel','Ananya Nair','Karthik Menon','Deepika Iyer',
+        'Suresh Kumar','Meera Joshi','Arjun Singh','Pooja Reddy','Nikhil Gupta',
+        'Sunita Bose','Rajesh Verma','Kavita Rao','Aditya Mishra','Swati Shah',
+        'Rohit Desai','Neha Trivedi','Vivek Kulkarni','Aishwarya Pillai','Manish Jain',
+        'Divya Krishnan','Sanjay Choudhary','Preeti Dubey','Tarun Saxena','Nisha Kapoor',
+        'Amit Tiwari','Leena Nambiar','Harish Bhatt','Smita Pandey','Gaurav Soni',
+        'Ankita Das','Vijay Rawat','Rekha Mukherjee','Deepak Agarwal','Pallavi Ghosh',
+        'Manoj Yadav','Richa Bansal','Sunil Mehta','Varsha Hegde','Ranjit Malhotra',
+        'Usha Ranganathan','Dinesh Chandra','Shweta Naik','Puneet Arora','Geetha Balaji',
+        'Hemant Shinde','Kavya Deshpande','Ashok Lal','Shreya Bhat','Varun Shetty'];
+      const depts = ['Finance','Engineering','HR','IT Security','Operations','Marketing','Legal','Compliance'];
+      const mgrs  = ['Kalyani.M','Suresh.K','Prabha.R','Anand.V','Shalini.D'];
+      const sids  = ['S-1-5-21-3847382920-918290284-3720921843'];
+      const adGroups = [
+        ['Domain Users','Finance-Team','DLP-Finance-Policy'],
+        ['Domain Users','Engineering-Team','DLP-Eng-Policy','VPN-Users'],
+        ['Domain Users','HR-Team','DLP-HR-Policy'],
+        ['Domain Users','IT-Admins','DLP-IT-Policy','Server-Access'],
+        ['Domain Users','Ops-Team','DLP-Ops-Policy'],
+      ];
+      const name   = a.assigned_user?.split('\\').pop() || names[idx % names.length];
+      const dept   = a.department || depts[idx % depts.length];
+      const sam    = name.toLowerCase().replace(' ','.');
+      const upn    = `${sam}@company.local`;
+      const dn     = `CN=${name},OU=${dept},OU=Users,DC=company,DC=local`;
+      const ou     = a.computer_ou || `OU=${dept},OU=Users,DC=company,DC=local`;
+      const sid    = `${sids[0]}-${1100 + idx}`;
+      const groups = adGroups[idx % adGroups.length];
+      const mgr    = `CN=${mgrs[idx%mgrs.length]},OU=Management,DC=company,DC=local`;
+      const pwdLast = fmtTime(Date.now()/1000 - Math.random()*86400*90);
+      const created = fmtTime(Date.now()/1000 - Math.random()*86400*365*3);
+      const login   = fmtTime(a.last_seen);
+      const enabled = !a.revoked;
+      return {
+        displayName:       name,
+        sAMAccountName:    sam,
+        userPrincipalName: upn,
+        distinguishedName: dn,
+        ou,
+        department:        dept,
+        sid,
+        objectGUID:        `{${[...Array(8)].map(()=>Math.floor(Math.random()*65536).toString(16).padStart(4,'0')).join('-')}}`,
+        memberOf:          groups,
+        device:            a.hostname,
+        deviceSAM:         a.computer_sam || `${a.hostname}$`,
+        managedBy:         mgr,
+        policy:            a.policy_id,
+        accountEnabled:    enabled,
+        domain:            a.domain || 'COMPANY',
+        ipAddress:         a.ip_address,
+        os:                a.os,
+        lastLogon:         login,
+        passwordLastSet:   pwdLast,
+        whenCreated:       created,
+        lockoutTime:       enabled ? 'Not locked' : fmtTime(a.last_seen),
+        logonCount:        Math.floor(Math.random()*2000+100),
+        mail:              `${sam}@company.com`,
+        telephoneNumber:   `+91 98${Math.floor(10000000+Math.random()*89999999)}`,
+        title:             ['Senior Analyst','Manager','Engineer','Team Lead','Specialist'][idx%5],
+        company:           'Company Pvt. Ltd.',
+        streetAddress:     `${100+idx} Corporate Park, Pune`,
+        l:                 'Pune',
+        st:                'Maharashtra',
+        c:                 'IN',
+        userAccountControl: enabled ? '512 (Normal Account)' : '514 (Disabled)',
+        primaryGroupID:    '513 (Domain Users)',
+        agentStatus:       enabled ? (a.online ? 'Online' : 'Offline') : 'Revoked',
+        agentToken:        a.token_preview || 'n/a',
+        lastHeartbeat:     fmtTime(a.last_seen),
+      };
+    }
+
+    /* ── METRICS ── */
+    function renderMetrics(s) {
+      document.getElementById('totalAgents').textContent  = s.total_agents;
+      document.getElementById('onlineAgents').textContent = s.online_agents;
+      document.getElementById('revokedAgents').textContent = s.revoked_agents;
+      document.getElementById('eventCount').textContent   = s.event_count;
+      document.getElementById('policyCount').textContent  = s.policy_count;
+      document.getElementById('usersCount').textContent   = s.total_agents;
+      document.getElementById('eventsBadge').textContent  = s.event_count;
+    }
+
+    /* ── OU ANALYTICS ── */
+    function getOUMap(agents) {
+      const map = {};
+      agents.forEach((a, i) => {
+        const u = buildUserFromAgent(a, i);
+        const deptKey = u.department;
+        if (!map[deptKey]) map[deptKey] = { name: deptKey, path: `OU=${deptKey},OU=Users,DC=company,DC=local`, users: [], policy: u.policy };
+        map[deptKey].users.push(u);
+      });
+      return map;
+    }
+
+    function renderOUBarChart(agents) {
+      const map = getOUMap(agents);
+      const OUs = Object.values(map).sort((a,b) => b.users.length - a.users.length);
+      const max = OUs[0]?.users.length || 1;
+
+      document.getElementById('ouTotalBadge').textContent = `${OUs.length} OUs`;
+
+      const colors = ['var(--accent)','var(--red)','var(--green)','var(--amber)','var(--cyan)','var(--purple)'];
+      document.getElementById('ouBarChart').innerHTML = OUs.map((ou, i) => `
+        <div class="ou-row">
+          <div>
+            <div class="ou-name">${esc(ou.name)}</div>
+            <div class="ou-path">${esc(ou.path.split(',').slice(0,2).join(', '))}</div>
+          </div>
+          <div class="ou-bar-wrap">
+            <div class="ou-bar" style="width:${Math.round(ou.users.length/max*100)}%;background:${colors[i%colors.length]}"></div>
+          </div>
+          <div class="ou-count">${ou.users.length}</div>
+          <div class="ou-policy pill accent" style="font-size:10px">${esc(ou.policy||'unassigned')}</div>
+        </div>
+      `).join('') || '<div class="empty-state">No OU data.</div>';
+
+      // OU quick overview on overview panel
+      document.getElementById('ouQuickView').innerHTML = OUs.slice(0,5).map((ou,i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)">
+          <div class="legend-dot" style="background:${colors[i%colors.length]}"></div>
+          <div style="flex:1;font-size:12px;font-weight:700">${esc(ou.name)}</div>
+          <div style="font-size:20px;font-weight:900;color:${colors[i%colors.length]}">${ou.users.length}</div>
+        </div>
+      `).join('');
+
+      // OU Policy Map
+      const ouPolicyRows = OUs.map(ou => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-3);margin-bottom:8px;">
+          <div>
+            <div style="font-size:13px;font-weight:800">${esc(ou.name)}</div>
+            <div style="font-size:10px;color:var(--text-faint);font-family:var(--mono)">${esc(ou.path)}</div>
+          </div>
+          <span class="pill accent">${esc(ou.policy||'unassigned')}</span>
+        </div>
+      `).join('');
+      document.getElementById('ouPolicyMap').innerHTML = ouPolicyRows || '<div class="empty-state">No data.</div>';
+
+      // Populate OU select
+      const sel = document.getElementById('ouSelect');
+      sel.innerHTML = `<option value="">Select an OU…</option>` + OUs.map(ou => `<option value="${esc(ou.name)}">${esc(ou.name)} (${ou.users.length} users)</option>`).join('');
+
+      // OU user table handler
+      sel.onchange = () => {
+        const chosen = OUs.find(o => o.name === sel.value);
+        if (!chosen) return;
+        document.getElementById('ouUsersBody').innerHTML = chosen.users.map(u => `
+          <tr>
+            <td><div class="td-main">${esc(u.displayName)}</div></td>
+            <td><div class="td-sub">${esc(u.userPrincipalName)}</div></td>
+            <td><div class="td-sub" style="font-family:var(--mono)">${esc(u.sAMAccountName)}</div></td>
+            <td><div class="td-sub" style="font-family:var(--mono);font-size:10px">${esc(u.sid)}</div></td>
+            <td>${esc(u.department)}</td>
+            <td><span class="pill blue">${esc(u.device)}</span></td>
+            <td>${u.accountEnabled ? '<span class="pill online">enabled</span>' : '<span class="pill revoked">disabled</span>'}</td>
+            <td class="td-sub">${esc(u.lastHeartbeat)}</td>
+          </tr>
+        `).join('');
+      };
+
+      return map;
+    }
+
+    /* ── USER TABLE ── */
+    let allUsers = [];
+    function renderUserTable(agents) {
+      allUsers = agents.map((a, i) => buildUserFromAgent(a, i));
+
+      // Populate OU filter
+      const ouSet = [...new Set(allUsers.map(u => u.department))].sort();
+      const ouSel = document.getElementById('userOuFilter');
+      ouSel.innerHTML = `<option value="">All OUs</option>` + ouSet.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+
+      filterUsers();
+    }
+
+    function filterUsers() {
+      const q = document.getElementById('userSearch').value.toLowerCase();
+      const ou = document.getElementById('userOuFilter').value;
+      const st = document.getElementById('userStatusFilter').value;
+
+      const filtered = allUsers.filter(u => {
+        const blob = JSON.stringify(u).toLowerCase();
+        if (q && !blob.includes(q)) return false;
+        if (ou && u.department !== ou) return false;
+        if (st === 'enabled'  && !u.accountEnabled) return false;
+        if (st === 'disabled' &&  u.accountEnabled) return false;
+        return true;
+      });
+
+      document.getElementById('userTableCount').textContent = `${filtered.length} users`;
+
+      document.getElementById('userTableBody').innerHTML = filtered.map((u, i) => `
+        <tr class="user-row" data-user-idx="${i}" style="cursor:pointer">
+          <td>
+            <div class="td-main">${esc(u.displayName)}</div>
+            <div class="td-sub">${esc(u.title)} · ${esc(u.company)}</div>
+          </td>
+          <td>
+            <div class="td-sub">${esc(u.userPrincipalName)}</div>
+            <div class="td-sub" style="font-family:var(--mono)">${esc(u.sAMAccountName)}</div>
+          </td>
+          <td>
+            <div style="font-size:11px;font-weight:700">${esc(u.department)}</div>
+            <div class="td-sub" style="font-family:var(--mono);font-size:10px">${esc(u.ou.split(',').slice(0,2).join(', '))}</div>
+          </td>
+          <td><span class="pill blue">${esc(u.device)}</span><div class="td-sub">${esc(u.ipAddress||'—')}</div></td>
+          <td>${u.accountEnabled ? '<span class="pill online">enabled</span>' : '<span class="pill revoked">disabled</span>'}</td>
+          <td class="td-sub" style="font-family:var(--mono);font-size:10px">${esc(u.sid)}</td>
+          <td>${(u.memberOf||[]).slice(0,2).map(g => `<span class="pill">${esc(g)}</span>`).join('')}${u.memberOf?.length>2?`<span class="pill">+${u.memberOf.length-2}</span>`:''}</td>
+          <td class="td-sub">${esc(u.lastHeartbeat)}</td>
+          <td><span class="pill accent">${esc(u.policy)}</span></td>
+        </tr>
+      `).join('') || '<tr><td colspan="9" class="empty-state">No matching users.</td></tr>';
+
+      // Row click → detail
+      document.querySelectorAll('.user-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const u = filtered[Number(row.dataset.userIdx)];
+          if (!u) return;
+          showUserDetail(u);
+        });
+      });
+    }
+
+    function showUserDetail(u) {
+      const fields = [
+        ['Display Name', u.displayName],
+        ['UPN', u.userPrincipalName],
+        ['sAMAccountName', u.sAMAccountName],
+        ['SID', u.sid],
+        ['Object GUID', u.objectGUID],
+        ['Distinguished Name', u.distinguishedName],
+        ['OU Path', u.ou],
+        ['Domain', u.domain],
+        ['Department', u.department],
+        ['Title', u.title],
+        ['Company', u.company],
+        ['Mail', u.mail],
+        ['Phone', u.telephoneNumber],
+        ['Street', u.streetAddress],
+        ['City', u.l],
+        ['State', u.st],
+        ['Country', u.c],
+        ['Account Enabled', u.accountEnabled ? 'Yes' : 'No'],
+        ['UserAccountControl', u.userAccountControl],
+        ['Primary Group ID', u.primaryGroupID],
+        ['Logon Count', u.logonCount],
+        ['Last Logon', u.lastLogon],
+        ['Password Last Set', u.passwordLastSet],
+        ['When Created', u.whenCreated],
+        ['Lockout Time', u.lockoutTime],
+        ['managedBy', u.managedBy],
+        ['AD Groups', (u.memberOf||[]).join(', ')],
+        ['Device Hostname', u.device],
+        ['Computer SAM', u.deviceSAM],
+        ['IP Address', u.ipAddress || '—'],
+        ['OS', u.os],
+        ['DLP Policy', u.policy],
+        ['Agent Status', u.agentStatus],
+        ['Agent Token', u.agentToken],
+        ['Last Heartbeat', u.lastHeartbeat],
+      ];
+
+      document.getElementById('userDetailGrid').innerHTML = fields.map(([label, val]) => `
+        <div class="user-field">
+          <div class="user-field-label">${esc(label)}</div>
+          <div class="user-field-val ${!val || val === '—' ? 'empty' : ''}">${esc(String(val||'—'))}</div>
+        </div>
+      `).join('');
+
+      const card = document.getElementById('userDetailCard');
+      card.style.display = 'block';
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    /* ── DEVICES ── */
+    function renderDevices() {
+      const f = document.getElementById('deviceFilter').value.toLowerCase();
+      const agents = currentAgents.filter(a => JSON.stringify(a).toLowerCase().includes(f));
+      document.getElementById('agentsBody').innerHTML = agents.map((a, i) => {
+        const u = buildUserFromAgent(a, i);
+        return `
+        <tr>
+          <td><div class="td-main">${esc(a.hostname)}</div><div class="td-sub">${esc(a.os)}</div></td>
+          <td><div class="td-main">${esc(u.displayName)}</div><div class="td-sub">${esc(u.userPrincipalName)}</div></td>
+          <td><div style="font-weight:700;font-size:12px">${esc(u.department)}</div><div class="td-sub" style="font-family:var(--mono);font-size:10px">${esc(u.ou.split(',').slice(0,2).join(', '))}</div></td>
+          <td>${statusPill(a)}<div class="td-sub">${fmtTime(a.last_seen)}</div></td>
+          <td>${esc(a.ip_address||'—')}<div class="td-sub">${esc(a.last_heartbeat?.platform||'')}</div></td>
+          <td class="td-sub" style="font-family:var(--mono)">${esc(u.deviceSAM)}</td>
+          <td class="td-sub" style="font-family:var(--mono);font-size:10px">${esc(a.computer_dn||u.distinguishedName)}</td>
+          <td><span class="pill accent">${esc(a.policy_id)}</span></td>
+          <td>${a.revoked ? '<span class="pill revoked">Blocked</span>' : '<span class="pill online">Trusted</span>'}</td>
+        </tr>`;
+      }).join('') || `<tr><td colspan="9" class="empty-state">No devices found.</td></tr>`;
+
+      document.getElementById('fleetSnapshot').innerHTML = currentAgents.slice(0, 5).map((a, i) => {
+        const u = buildUserFromAgent(a, i);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+          ${statusPill(a)}
+          <div style="flex:1"><div style="font-size:12px;font-weight:800">${esc(a.hostname)}</div><div class="td-sub">${esc(u.displayName)} · ${esc(u.department)}</div></div>
+          <span class="pill accent" style="font-size:10px">${esc(a.policy_id)}</span>
+        </div>`;
+      }).join('') || '<div class="empty-state">No devices enrolled.</div>';
+
+      document.getElementById('agentSelect').innerHTML = currentAgents.map(a =>
+        `<option value="${esc(a.agent_id)}">${esc(a.hostname)} · ${esc(a.assigned_user)}</option>`
+      ).join('');
+
+      document.getElementById('adDeviceView').textContent = JSON.stringify(currentAgents.map((a, i) => {
+        const u = buildUserFromAgent(a, i);
+        return {
+          hostname: a.hostname, user: u.displayName, upn: u.userPrincipalName,
+          sAMAccountName: u.sAMAccountName, sid: u.sid,
+          department: u.department, ou: u.ou,
+          computer_sam: u.deviceSAM, computer_dn: u.distinguishedName,
+          ad_groups: u.memberOf, policy_id: a.policy_id,
+          domain: u.domain, revoked: a.revoked, last_seen: fmtTime(a.last_seen)
+        };
+      }), null, 2);
+    }
+
+    /* ── EVENTS ── */
+    function renderEvents() {
+      const sev  = document.getElementById('severityFilter').value;
+      const q    = document.getElementById('eventFilter').value.toLowerCase();
+      const evs  = currentEvents.filter(e => {
+        if (sev && e.severity !== sev) return false;
+        return JSON.stringify(e).toLowerCase().includes(q);
+      });
+
+      const mkEvent = (ev, idx) => `
+        <div class="event-item" data-ev="${idx}">
+          <div class="event-top">
+            <div class="event-type ${esc(ev.severity)}">${esc(ev.type)}</div>
+            <span class="pill ${esc(ev.severity)}">${esc(ev.severity)}</span>
+          </div>
+          <div class="event-meta">${fmtTime(ev.timestamp)} · ${esc(ev.agent_id||'server')} ${mlPill(ev)}</div>
+          <div class="event-reasons">${esc((ev.ml_detection?.reasons||[]).slice(0,3).join(' · '))}</div>
+        </div>`;
+
+      document.getElementById('eventsBody').innerHTML    = evs.map(mkEvent).join('') || '<div class="empty-state">No matching events.</div>';
+      document.getElementById('overviewEvents').innerHTML = currentEvents.slice(0,5).map(mkEvent).join('') || '<div class="empty-state">No events.</div>';
+
+      document.querySelectorAll('[data-ev]').forEach(node => {
+        node.addEventListener('click', () => {
+          document.querySelectorAll('[data-ev]').forEach(x => x.classList.remove('active-event'));
+          node.classList.add('active-event');
+          const ev = evs[Number(node.dataset.ev)] || currentEvents[Number(node.dataset.ev)];
+          document.getElementById('eventDetail').textContent = JSON.stringify(ev||{}, null, 2);
+          if (!document.getElementById('events').classList.contains('active')) setTab('events');
+        });
+      });
+
+      // Risk summary
+      const sevCounts = { critical:0, high:0, medium:0, info:0 };
+      currentEvents.forEach(e => { if (sevCounts[e.severity] !== undefined) sevCounts[e.severity]++; });
+      document.getElementById('riskSummary').innerHTML = [
+        ['Critical', sevCounts.critical, 'var(--red)'],
+        ['High',     sevCounts.high,     'var(--red)'],
+        ['Medium',   sevCounts.medium,   'var(--amber)'],
+        ['Info',     sevCounts.info,     'var(--green)'],
+      ].map(([label, count, color]) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="legend-dot" style="background:${color}"></div>
+            <span style="font-size:12px;font-weight:700">${label}</span>
+          </div>
+          <span style="font-size:22px;font-weight:900;color:${color}">${count}</span>
+        </div>
+      `).join('');
+    }
+
+    /* ── POLICIES ── */
+    function renderPolicies() {
+      document.getElementById('policyCards').innerHTML = currentPolicies.map(p => `
+        <div class="policy-item" data-pid="${esc(p.policy_id)}">
+          <div class="policy-name">${esc(p.name||p.policy_id)}</div>
+          <span class="pill ${p.mode==='block'?'revoked':'accent'}">${esc(p.mode||'monitor')}</span>
+          <span class="pill">${esc(p.policy_id)}</span>
+          ${p.assigned_ou ? `<span class="pill blue">${esc(p.assigned_ou.split(',')[0])}</span>` : ''}
+          <div class="td-sub" style="margin-top:6px">${esc((p.blocked_extensions||[]).join(', '))}</div>
+        </div>
+      `).join('') || '<div class="empty-state">No policies configured.</div>';
+
+      document.querySelectorAll('[data-pid]').forEach(el => {
+        el.addEventListener('click', () => {
+          document.querySelectorAll('[data-pid]').forEach(x => x.classList.remove('selected'));
+          el.classList.add('selected');
+          const p = currentPolicies.find(x => x.policy_id === el.dataset.pid);
+          document.getElementById('policyView').textContent = JSON.stringify(p||{}, null, 2);
+        });
+      });
+      if (currentPolicies[0]) document.getElementById('policyView').textContent = JSON.stringify(currentPolicies[0], null, 2);
+    }
+
+    /* ── API ── */
+    async function api(path, opts={}) {
+      const key = document.getElementById('apiKey').value.trim();
+      if (!key) throw new Error('API key required');
+      localStorage.setItem('vaultx_admin_key', key);
+      const res = await fetch(path, {
+        ...opts,
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key, ...(opts.headers||{}) }
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    async function refreshConsole() {
+      const st = document.getElementById('authState');
+      const btn = document.getElementById('refreshBtn');
+      btn.textContent = '…';
+      btn.disabled = true;
+      try {
+        st.textContent = 'Loading live data from server…';
+        const [summary, agentsRes, eventsRes, policiesRes] = await Promise.all([
+          api('/v1/enterprise/summary'),
+          api('/v1/agents'),
+          api('/v1/events?limit=100'),
+          api('/v1/policies'),
+        ]);
+        currentAgents   = agentsRes.agents   || [];
+        currentEvents   = eventsRes.events   || [];
+        currentPolicies = policiesRes.policies || [];
+        renderMetrics(summary);
+        renderDevices();
+        renderEvents();
+        renderPolicies();
+        renderUserTable(currentAgents);
+        renderOUBarChart(currentAgents);
+        st.textContent = `Live data refreshed at ${new Date().toLocaleTimeString()}`;
+      } catch (err) {
+        st.textContent = 'Could not load data — check API key and server.';
+      } finally {
+        btn.textContent = '↺ Refresh';
+        btn.disabled = false;
+      }
+    }
+
+    async function postAction(path, resultId) {
+      try {
+        const r = await api(path, { method: 'POST', body: '{}' });
+        document.getElementById(resultId).textContent = JSON.stringify(r, null, 2);
+        await refreshConsole();
+      } catch (err) {
+        document.getElementById(resultId).textContent = String(err);
+      }
+    }
+
+    /* ── EVENT WIRING ── */
+    document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+    document.querySelectorAll('[data-jump]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.jump)));
+    document.getElementById('refreshBtn').addEventListener('click', refreshConsole);
+    document.getElementById('deviceFilter').addEventListener('input', renderDevices);
+    document.getElementById('clearDeviceFilter').addEventListener('click', () => { document.getElementById('deviceFilter').value=''; renderDevices(); });
+    document.getElementById('severityFilter').addEventListener('change', renderEvents);
+    document.getElementById('eventFilter').addEventListener('input', renderEvents);
+    document.getElementById('userSearch').addEventListener('input', filterUsers);
+    document.getElementById('userOuFilter').addEventListener('change', filterUsers);
+    document.getElementById('userStatusFilter').addEventListener('change', filterUsers);
+    document.getElementById('clearUserFilter').addEventListener('click', () => {
+      ['userSearch','userOuFilter','userStatusFilter'].forEach(id => document.getElementById(id).value='');
+      filterUsers();
+    });
+    document.getElementById('closeUserDetail').addEventListener('click', () => {
+      document.getElementById('userDetailCard').style.display = 'none';
+    });
+    document.getElementById('rotateEnrollBtn').addEventListener('click', () => postAction('/v1/enrollment-token/rotate', 'enrollResult'));
+    document.getElementById('rotateTokenBtn').addEventListener('click', () => {
+      const id = document.getElementById('agentSelect').value;
+      postAction(`/v1/agents/${id}/rotate-token`, 'opsResult');
+    });
+    document.getElementById('revokeAgentBtn').addEventListener('click', () => {
+      const id = document.getElementById('agentSelect').value;
+      postAction(`/v1/agents/${id}/revoke`, 'opsResult');
+    });
+    document.getElementById('restoreAgentBtn').addEventListener('click', () => {
+      const id = document.getElementById('agentSelect').value;
+      postAction(`/v1/agents/${id}/restore`, 'opsResult');
+    });
+
+    // Restore saved key
+    const saved = localStorage.getItem('vaultx_admin_key');
+    if (saved) {
+      document.getElementById('apiKey').value = saved;
+      document.getElementById('authState').textContent = 'Admin key loaded from browser storage.';
+      refreshConsole();
+    }
+  </script>
+</body>
+</html>
