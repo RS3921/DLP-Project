@@ -165,9 +165,13 @@ class VaultService:
         }
 
     def audit(self, limit: int = 50) -> dict[str, Any]:
-        log = self.gateway.config.get("audit_log", [])
         limit = max(1, min(limit, 500))
-        return {"entries": log[-limit:], "count": min(len(log), limit)}
+        entries = self.gateway.audit_ledger.read_all()[-limit:]
+        return {
+            "entries": [entry.to_dict() for entry in entries],
+            "count": len(entries),
+            "chain_valid": self.gateway.audit_ledger.verify_chain(),
+        }
 
     def encrypt_path(
         self,
@@ -313,6 +317,26 @@ class VaultRequestHandler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "service": "vaultx"})
                 return
 
+            if method == "GET" and self.path == "/assets/logo.png":
+                self._send_bytes(
+                    (PROJECT_ROOT / "app_gui" / "assets" / "logo.png").read_bytes(),
+                    "image/png",
+                )
+                return
+
+            if method == "GET" and self.path == "/assets/theme.css":
+                self._send_bytes(
+                    (PROJECT_ROOT / "app_gui" / "assets" / "theme.css").read_bytes(),
+                    "text/css; charset=utf-8",
+                )
+                return
+
+            if method == "GET" and self.path == "/login.html":
+                self._send_html(
+                    (PROJECT_ROOT / "app_gui" / "login.html").read_text(encoding="utf-8")
+                )
+                return
+
             if method == "GET" and self.path in {"/", "/index.html"}:
                 self._send_html(self._advanced_home_page())
                 return
@@ -361,6 +385,10 @@ class VaultRequestHandler(BaseHTTPRequestHandler):
 
             if method == "GET" and self.path == "/v1/policies":
                 self._send_json({"policies": self.service.enterprise.list_policies()})
+                return
+
+            if method == "GET" and self.path == "/v1/compliance":
+                self._send_json(self.service.enterprise.compliance_report())
                 return
 
             if method == "GET" and self.path == "/v1/agent/policy":
@@ -557,6 +585,20 @@ class VaultRequestHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_bytes(
+        self,
+        body: bytes,
+        content_type: str,
+        status: HTTPStatus = HTTPStatus.OK,
+    ) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "public, max-age=3600")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(body)

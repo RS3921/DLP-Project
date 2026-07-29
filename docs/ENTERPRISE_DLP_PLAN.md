@@ -180,8 +180,16 @@ file contents.
 6. Add central database support instead of JSON state for multi-admin use.
 7. Add SSO/admin login for the console.
 8. Add TLS/reverse proxy deployment configuration.
-9. Add formal audit export for compliance reporting.
+9. Add signed, downloadable audit bundles to extend the implemented compliance
+   readiness dashboard with formal auditor exports.
 10. Replace HMAC policy signing with asymmetric Ed25519 signatures.
+
+## Compliance Readiness
+
+The admin console includes a Compliance page backed by `GET /v1/compliance`.
+It evaluates live enterprise evidence against controls mapped to ISO/IEC 27001,
+GDPR, and SOC 2. The readiness result is an operational aid and does not itself
+constitute certification or legal advice.
 
 ## AI/ML Malicious Activity Detection
 

@@ -1,0 +1,136 @@
+{
+  "vault_version": "1.0.0",
+  "setup_complete": true,
+  "owner_hash": "5d8f9d1d112750a89570165fc3845859160d886cad10f4158de41acf5592c2e1",
+  "totp_secret": "eYsghUOZUgIk3kErOcb7E1QzZ44=",
+  "biometric": {
+    "hash": "3659c9fd276cb7117cef936677f9dbf1d1d16ab55016172cc9d92464a8bb8904",
+    "salt": "Db8QxbaCWf/YzIHLKMRIhsy/wD6qstukszLZAsvabk8=",
+    "iterations": 260000
+  },
+  "behavioral": {
+    "mean": 195.07692307692307,
+    "stddev": 63.12332252150426,
+    "median": 193.0,
+    "count": 26
+  },
+  "zkp_key": "DQtld2ANI6OVqVXqRAAhzhYckELG6eaCgDqO4YE49to=",
+  "geofence": {
+    "registered_devices": [
+      "a8b95f800f985ad53f70d0203bb972adc7c9db4a567ab3a3acdccf3a8bcb0240"
+    ],
+    "allowed_ips": [],
+    "geofence_enabled": true,
+    "latitude": 18.5948515,
+    "longitude": 73.951004,
+    "radius_meters": 10000.0
+  },
+  "fail_log": {
+    "a8b95f800f985ad53f70d0203bb972adc7c9db4a567ab3a3acdccf3a8bcb0240": {
+      "count": 0,
+      "lockout_until": 0
+    }
+  },
+  "audit_log": [
+    {
+      "timestamp": "2026-07-29 10:41:13",
+      "event": "SETUP_COMPLETE",
+      "details": {
+        "device": "a8b95f800f985ad5"
+      }
+    },
+    {
+      "timestamp": "2026-07-29 10:42:49",
+      "event": "LOGIN_FAILURE",
+      "details": {
+        "device": "a8b95f800f985ad5",
+        "failed": [
+          "C"
+        ],
+        "fail_count": 1
+      }
+    },
+    {
+      "timestamp": "2026-07-29 10:43:07",
+      "event": "LOGIN_FAILURE",
+      "details": {
+        "device": "a8b95f800f985ad5",
+        "failed": [
+          "C"
+        ],
+        "fail_count": 1
+      }
+    },
+    {
+      "timestamp": "2026-07-29 10:43:23",
+      "event": "LOGIN_FAILURE",
+      "details": {
+        "device": "a8b95f800f985ad5",
+        "failed": [
+          "C"
+        ],
+        "fail_count": 1
+      }
+    },
+    {
+      "timestamp": "2026-07-29 10:43:49",
+      "event": "LOGIN_FAILURE",
+      "details": {
+        "device": "a8b95f800f985ad5",
+        "failed": [
+          "C",
+          "E"
+        ],
+        "fail_count": 1
+      }
+    },
+    {
+      "timestamp": "2026-07-29 10:44:09",
+      "event": "LOGIN_FAILURE",
+      "details": {
+        "device": "a8b95f800f985ad5",
+        "failed": [
+          "C",
+          "E"
+        ],
+        "fail_count": 1
+      }
+    },
+    {
+      "timestamp": "2026-07-29 10:44:48",
+      "event": "SETUP_COMPLETE",
+      "details": {
+        "device": "a8b95f800f985ad5"
+      }
+    },
+    {
+      "timestamp": "2026-07-29 10:46:02",
+      "event": "LOGIN_FAILURE",
+      "details": {
+        "device": "a8b95f800f985ad5",
+        "failed": [
+          "C"
+        ],
+        "fail_count": 1
+      }
+    },
+    {
+      "timestamp": "2026-07-29 10:48:56",
+      "event": "LOGIN_SUCCESS",
+      "details": {
+        "device": "a8b95f800f985ad5",
+        "session": "621b0c045d6ce3ea",
+        "layers": {
+          "A": true,
+          "B": true,
+          "C": true,
+          "D": true,
+          "E": true
+        },
+        "behavioral_score": 0.7921772648454545
+      }
+    }
+  ],
+  "recovery_key_hash": "a8f7871aee8ef60610ceb44c553d92766e7f4bdae09210ee515f174e4302d967",
+  "recovery_key_salt": "23736f9e8faff07de28b6084402e2e9d"
+}

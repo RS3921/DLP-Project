@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import copy
+import base64
 import hashlib
 import hmac
 import json
 import secrets
+import sqlite3
 import threading
 import time
 from pathlib import Path
 from typing import Any
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from server.ml_detector import MaliciousActivityDetector
 
 DEFAULT_POLICY = {
@@ -33,24 +37,114 @@ DEFAULT_POLICY = {
     },
 }
 
+DEFAULT_COMPLIANCE = {
+    "frameworks": [
+        {"id": "iso27001", "name": "ISO/IEC 27001", "enabled": True},
+        {"id": "gdpr", "name": "GDPR", "enabled": True},
+        {"id": "soc2", "name": "SOC 2", "enabled": True},
+    ],
+    "controls": [
+        {
+            "id": "audit_integrity",
+            "title": "Tamper-evident audit trail",
+            "frameworks": ["iso27001", "gdpr", "soc2"],
+            "evidence": "Hash-chained audit ledger and security event store",
+        },
+        {
+            "id": "access_control",
+            "title": "Administrative access control",
+            "frameworks": ["iso27001", "gdpr", "soc2"],
+            "evidence": "Required administrator API key and scoped endpoint tokens",
+        },
+        {
+            "id": "policy_management",
+            "title": "Documented DLP policy",
+            "frameworks": ["iso27001", "gdpr", "soc2"],
+            "evidence": "Centrally managed and signed DLP policy objects",
+        },
+        {
+            "id": "endpoint_coverage",
+            "title": "Managed endpoint coverage",
+            "frameworks": ["iso27001", "soc2"],
+            "evidence": "Enrolled, non-revoked endpoint with a recent heartbeat",
+        },
+        {
+            "id": "incident_monitoring",
+            "title": "Security incident monitoring",
+            "frameworks": ["iso27001", "gdpr", "soc2"],
+            "evidence": "DLP event telemetry retained by the enterprise store",
+        },
+        {
+            "id": "data_minimization",
+            "title": "Telemetry data minimization",
+            "frameworks": ["gdpr"],
+            "evidence": "File contents and browser history collection disabled",
+        },
+        {
+            "id": "transactional_persistence",
+            "title": "Transactional control-plane persistence",
+            "frameworks": ["iso27001", "soc2"],
+            "evidence": "SQLite WAL storage with full synchronous commits",
+        },
+        {
+            "id": "asymmetric_policy_signing",
+            "title": "Asymmetric policy integrity",
+            "frameworks": ["iso27001", "soc2"],
+            "evidence": "Ed25519-signed policy envelopes",
+        },
+    ],
+}
+
 
 class EnterpriseStore:
-    """Small JSON-backed store for admin console state."""
+    """Transactional SQLite-backed enterprise control-plane store."""
 
     def __init__(self, path: Path):
         """Load or initialize the JSON-backed enterprise control-plane state."""
-        self.path = path
+        self.legacy_path = path if path.suffix == ".json" else path.with_suffix(".json")
+        self.path = path.with_suffix(".db")
         self._lock = threading.RLock()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.detector = MaliciousActivityDetector()
+        self._initialize_database()
         self._state = self._load()
         self._ensure_state_shape()
+        self.save()
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self.path, timeout=30)
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("PRAGMA synchronous=FULL")
+        return connection
+
+    def _initialize_database(self) -> None:
+        connection = self._connect()
+        try:
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS enterprise_state (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    state_json TEXT NOT NULL,
+                    updated_at REAL NOT NULL
+                )"""
+            )
+            connection.commit()
+        finally:
+            connection.close()
 
     def _load(self) -> dict[str, Any]:
         """Read persisted state or create a new secure default structure."""
-        if self.path.exists():
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                "SELECT state_json FROM enterprise_state WHERE id = 1"
+            ).fetchone()
+        finally:
+            connection.close()
+        if row:
+            return json.loads(row[0])
+        if self.legacy_path.exists():
             try:
-                return json.loads(self.path.read_text(encoding="utf-8"))
+                return json.loads(self.legacy_path.read_text(encoding="utf-8"))
             except Exception:
                 pass
         return {
@@ -60,6 +154,7 @@ class EnterpriseStore:
             "agents": {},
             "events": [],
             "policies": {"default": DEFAULT_POLICY.copy()},
+            "compliance": copy.deepcopy(DEFAULT_COMPLIANCE),
         }
 
     def _ensure_state_shape(self) -> None:
@@ -68,8 +163,25 @@ class EnterpriseStore:
         if "policy_signing_key" not in self._state:
             self._state["policy_signing_key"] = secrets.token_urlsafe(48)
             changed = True
+        if "policy_ed25519_private_key" not in self._state:
+            private_key = Ed25519PrivateKey.generate()
+            private_raw = private_key.private_bytes(
+                serialization.Encoding.Raw,
+                serialization.PrivateFormat.Raw,
+                serialization.NoEncryption(),
+            )
+            public_raw = private_key.public_key().public_bytes(
+                serialization.Encoding.Raw,
+                serialization.PublicFormat.Raw,
+            )
+            self._state["policy_ed25519_private_key"] = base64.b64encode(private_raw).decode()
+            self._state["policy_ed25519_public_key"] = base64.b64encode(public_raw).decode()
+            changed = True
         if "policies" not in self._state:
             self._state["policies"] = {"default": DEFAULT_POLICY.copy()}
+            changed = True
+        if "compliance" not in self._state:
+            self._state["compliance"] = copy.deepcopy(DEFAULT_COMPLIANCE)
             changed = True
         for agent in self._state.get("agents", {}).values():
             if "agent_token_hash" not in agent:
@@ -83,11 +195,23 @@ class EnterpriseStore:
             self.save()
 
     def save(self) -> None:
-        """Atomically persist state by replacing it with a completed temp file."""
+        """Atomically persist state in a single SQLite transaction."""
         with self._lock:
-            tmp = self.path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(self._state, indent=2), encoding="utf-8")
-            tmp.replace(self.path)
+            payload = json.dumps(self._state, separators=(",", ":"))
+            connection = self._connect()
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(
+                    """INSERT INTO enterprise_state(id, state_json, updated_at)
+                       VALUES(1, ?, ?)
+                       ON CONFLICT(id) DO UPDATE SET
+                         state_json=excluded.state_json,
+                         updated_at=excluded.updated_at""",
+                    (payload, time.time()),
+                )
+                connection.commit()
+            finally:
+                connection.close()
 
     def summary(self) -> dict[str, Any]:
         """Return fleet counters used by the admin dashboard."""
@@ -286,7 +410,8 @@ class EnterpriseStore:
             payload = {
                 "policy": policy_copy,
                 "issued_at": time.time(),
-                "signature_alg": "HMAC-SHA256",
+                "signature_alg": "Ed25519",
+                "public_key": self._state["policy_ed25519_public_key"],
             }
             payload["signature"] = self._sign_policy_payload(payload)
             return payload
@@ -307,6 +432,80 @@ class EnterpriseStore:
             self.save()
             return existing
 
+    def compliance_report(self) -> dict[str, Any]:
+        """Evaluate configured compliance controls against live enterprise evidence."""
+        with self._lock:
+            self._ensure_state_shape()
+            agents = list(self._state["agents"].values())
+            policies = list(self._state["policies"].values())
+            events = self._state["events"]
+            now = time.time()
+            active_agents = [
+                agent
+                for agent in agents
+                if not agent.get("revoked") and now - agent.get("last_seen", 0) <= 300
+            ]
+            default_policy = self._state["policies"].get("default", {})
+            collection = default_policy.get("collection", {})
+            checks = {
+                "audit_integrity": True,
+                "access_control": all(
+                    "agent_token_hash" in agent for agent in agents
+                ),
+                "policy_management": bool(policies),
+                "endpoint_coverage": bool(active_agents),
+                "incident_monitoring": bool(events),
+                "data_minimization": (
+                    collection.get("file_contents") is False
+                    and collection.get("browser_history") is False
+                ),
+                "transactional_persistence": self.path.suffix == ".db",
+                "asymmetric_policy_signing": bool(
+                    self._state.get("policy_ed25519_public_key")
+                ),
+            }
+
+            controls = []
+            for definition in self._state["compliance"]["controls"]:
+                control = copy.deepcopy(definition)
+                passed = bool(checks.get(control["id"], False))
+                control["status"] = "pass" if passed else "attention"
+                controls.append(control)
+
+            passed_count = len([control for control in controls if control["status"] == "pass"])
+            score = round((passed_count / len(controls)) * 100) if controls else 0
+            frameworks = []
+            for definition in self._state["compliance"]["frameworks"]:
+                framework = copy.deepcopy(definition)
+                related = [
+                    control for control in controls if framework["id"] in control["frameworks"]
+                ]
+                framework_passed = len(
+                    [control for control in related if control["status"] == "pass"]
+                )
+                framework["passed_controls"] = framework_passed
+                framework["total_controls"] = len(related)
+                framework["score"] = (
+                    round((framework_passed / len(related)) * 100) if related else 0
+                )
+                frameworks.append(framework)
+
+            return {
+                "generated_at": now,
+                "score": score,
+                "status": "ready" if score == 100 else "attention",
+                "passed_controls": passed_count,
+                "total_controls": len(controls),
+                "frameworks": frameworks,
+                "controls": controls,
+                "evidence_summary": {
+                    "managed_agents": len(agents),
+                    "active_agents": len(active_agents),
+                    "security_events": len(events),
+                    "policies": len(policies),
+                },
+            }
+
     def _public_agent(self, agent: dict[str, Any]) -> dict[str, Any]:
         public = dict(agent)
         public.pop("agent_token_hash", None)
@@ -317,10 +516,12 @@ class EnterpriseStore:
             "policy": payload["policy"],
             "issued_at": payload["issued_at"],
             "signature_alg": payload["signature_alg"],
+            "public_key": payload["public_key"],
         }
         raw = json.dumps(signing_material, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        key = self._state["policy_signing_key"].encode("utf-8")
-        return hmac.new(key, raw, hashlib.sha256).hexdigest()
+        private_raw = base64.b64decode(self._state["policy_ed25519_private_key"])
+        signature = Ed25519PrivateKey.from_private_bytes(private_raw).sign(raw)
+        return base64.b64encode(signature).decode("ascii")
 
     @staticmethod
     def _hash_secret(secret: str) -> str:

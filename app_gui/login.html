@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VAULT-X · Login</title>
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+  body{
+    display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(ellipse 900px 600px at 18% 45%, rgba(229,31,31,.10), transparent 60%),
+      var(--bg-0);
+    position:relative;
+  }
+  .glow-swirl{
+    position:absolute; left:-10%; top:0; width:75%; height:100%;
+    background:
+      radial-gradient(circle at 30% 40%, rgba(229,31,31,.55), transparent 42%),
+      radial-gradient(circle at 55% 65%, rgba(229,31,31,.25), transparent 45%);
+    filter: blur(40px);
+    opacity:.55;
+    pointer-events:none;
+    animation: drift 12s ease-in-out infinite alternate;
+  }
+  @keyframes drift{ from{transform:translateY(-10px);} to{transform:translateY(10px);} }
+
+  .brand{
+    position:relative; z-index:2;
+    width:44%; padding:0 60px; display:flex; flex-direction:column; gap:22px;
+  }
+  .logo-mark{
+    width:96px;height:110px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .logo-mark img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 14px var(--accent-glow));}
+  .brand h1{
+    font-size:46px; letter-spacing:2px; font-weight:800;
+    color:var(--text-pri);
+  }
+  .brand h1 span{color:var(--accent); text-shadow:0 0 30px var(--accent-glow);}
+  .brand .tagline{
+    font-size:13px; letter-spacing:4px; color:var(--text-sec); font-weight:600;
+  }
+  .brand .layers-badge{
+    display:inline-flex; align-items:center; gap:8px; margin-top:6px;
+  }
+  .layers-badge .bar{width:26px;height:2px;background:var(--accent);}
+  .layers-badge span{font-size:12px; letter-spacing:3px; color:var(--accent); font-weight:700;}
+
+  .brand .lede{ font-size:26px; font-weight:600; line-height:1.35; margin-top:8px;}
+  .brand .sub{ color:var(--text-sec); font-size:14px; line-height:1.6; max-width:380px;}
+
+  .brand .pills{ display:flex; gap:22px; margin-top:10px; }
+  .pill{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-sec); font-weight:600; letter-spacing:.5px;}
+  .pill .dot{width:14px;height:14px;}
+
+  .panel{
+    position:relative; z-index:2;
+    width:420px; background:linear-gradient(180deg, var(--bg-panel), #0d0202);
+    border:1px solid var(--border); border-radius:18px;
+    padding:34px 34px 28px; box-shadow:0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(229,31,31,.06);
+    max-height:calc(100vh - 40px); overflow-y:auto;
+  }
+  .panel h2{font-size:22px; font-weight:800; text-align:center; margin-bottom:4px;}
+  .panel .sub2{font-size:12.5px; color:var(--text-sec); text-align:center; margin-bottom:26px;}
+  .modal{max-height:calc(100vh - 60px);overflow-y:auto;}
+
+  .layer-label{ font-size:11px; font-weight:700; letter-spacing:1.5px; color:var(--text-sec); margin-bottom:8px;}
+  .layer-label b{color:var(--accent);}
+
+  .field{
+    position:relative; display:flex; align-items:center; gap:10px;
+    background:var(--bg-input); border:1px solid var(--border); border-radius:10px;
+    padding:12px 14px; margin-bottom:20px;
+  }
+  .field:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow);}
+  .field .ic{ width:16px;height:16px; flex:none; color:var(--accent);}
+  .field input{
+    flex:1; background:transparent; border:none; outline:none; color:var(--text-pri);
+    font-size:14px; letter-spacing:1px;
+  }
+  .field input::placeholder{color:var(--text-dim); letter-spacing:.3px;}
+  .field .timer{
+    width:26px;height:26px;border-radius:50%;border:2px solid var(--accent-dim);
+    display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--accent);
+    flex:none;
+  }
+  .field .eye{width:16px;height:16px;color:var(--text-sec);cursor:pointer;flex:none;}
+
+  .gates{ display:flex; flex-direction:column; gap:2px; margin-bottom:20px;}
+  .gate{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 4px; border-bottom:1px solid rgba(255,255,255,.03);
+  }
+  .gate:last-child{border-bottom:none;}
+  .gate-left{display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text-pri); font-weight:600;}
+  .gate-left .gi{width:16px;height:16px;color:var(--accent);}
+  .gate-left .tag{color:var(--text-sec); font-weight:700;}
+  .status{display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600;}
+  .status .sdot{width:7px;height:7px;border-radius:50%;background:var(--text-dim);}
+  .status.waiting{color:var(--text-sec);}
+  .status.pass{color:var(--green);}
+  .status.pass .sdot{background:var(--green);}
+  .status.fail{color:var(--accent);}
+  .status.fail .sdot{background:var(--accent);}
+
+  .progress{height:5px; background:#2a0d0d; border-radius:3px; overflow:hidden; margin-bottom:22px;}
+  .progress .fill{height:100%; width:40%; background:linear-gradient(90deg,var(--accent),#ff5b5b); transition:width .4s ease;}
+
+  .actions{display:flex; gap:12px;}
+  .btn{
+    flex:1; padding:14px 0; border-radius:10px; border:none; font-weight:700; font-size:13.5px;
+    letter-spacing:.5px; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn-primary{ background:linear-gradient(180deg,#ee2b2b,#c31414); color:#fff; box-shadow:0 8px 22px rgba(229,31,31,.35);}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-primary:disabled{opacity:.55; cursor:not-allowed; filter:none;}
+  .btn-secondary{ background:var(--bg-input); color:var(--text-pri); border:1px solid var(--border);}
+  .btn-secondary:hover{border-color:var(--accent);}
+
+  .msg{ min-height:18px; text-align:center; font-size:12px; margin-top:14px; font-weight:600;}
+  .msg.err{color:var(--accent);}
+  .msg.ok{color:var(--green);}
+
+  .footer{ position:absolute; bottom:22px; left:0; right:0; text-align:center; font-size:11px; color:var(--text-dim); z-index:2;}
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:10;
+    display:none; align-items:center; justify-content:center;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    width:440px; background:linear-gradient(180deg, var(--bg-panel), #0d0202);
+    border:1px solid var(--border); border-radius:16px; padding:28px;
+    box-shadow:0 30px 80px rgba(0,0,0,.7);
+  }
+  .modal h3{font-size:18px; font-weight:800; margin-bottom:6px;}
+  .modal p{font-size:12.5px; color:var(--text-sec); line-height:1.6; margin-bottom:16px;}
+  .modal .secret-box{
+    background:var(--bg-input); border:1px solid var(--border); border-radius:10px;
+    padding:12px 14px; font-family:Consolas,monospace; font-size:13px; color:var(--accent);
+    word-break:break-all; margin-bottom:16px; letter-spacing:1px;
+    -webkit-user-select:text !important; user-select:text !important; cursor:text;
+  }
+  .secret-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;margin-bottom:16px;}
+  .secret-row .secret-box{margin-bottom:0;min-height:44px;}
+  .copy-btn{height:44px;padding:0 13px;border-radius:9px;border:1px solid var(--border);background:var(--bg-input);color:var(--text-pri);font-weight:700;cursor:pointer;}
+  .copy-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .qr-wrap{display:grid;place-items:center;margin:4px 0 16px;}
+  .qr-wrap img{width:190px;height:190px;background:white;border:8px solid white;border-radius:12px;image-rendering:pixelated;}
+  .modal .field{margin-bottom:14px;}
+  .modal-actions{display:flex; gap:10px; margin-top:6px;}
+  .warn-box{
+    background:rgba(255,183,64,.08); border:1px solid rgba(255,183,64,.3); color:#ffb740;
+    font-size:12px; border-radius:8px; padding:10px 12px; margin-bottom:16px; line-height:1.5;
+  }
+</style>
+</head>
+<body>
+  <div class="glow-swirl"></div>
+
+  <div class="brand">
+    <div class="logo-mark"><img src="assets/logo.png" alt="VAULT-X"></div>
+    <h1>VAULT<span>-X</span></h1>
+    <div class="layers-badge"><div class="bar"></div><span>5-LAYER AUTHENTICATION</span></div>
+    <div class="lede">Your data. Your control.<br>Our technology.</div>
+    <div class="sub">Advanced 5-layer security to protect what matters most — you.</div>
+    <div class="pills">
+      <div class="pill">🛡️ SECURE</div>
+      <div class="pill">🔒 PRIVATE</div>
+      <div class="pill">📦 ENCRYPTED</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Welcome back</h2>
+    <div class="sub2">Login to access your secure vault</div>
+
+    <div class="layer-label"><b>LAYER A</b> — TOTP CODE</div>
+    <div class="field">
+      <svg class="ic" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z"/></svg>
+      <input id="totp" type="text" maxlength="6" placeholder="Enter 6-digit code" autocomplete="off">
+      <div class="timer" id="totpTimer">30</div>
+    </div>
+
+    <div class="layer-label"><b>LAYER B</b> — PASSPHRASE</div>
+    <div class="field">
+      <svg class="ic" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z"/></svg>
+      <input id="pass" type="password" placeholder="Enter your passphrase" autocomplete="off">
+      <svg class="eye" id="eyeToggle" viewBox="0 0 24 24" fill="currentColor"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+    </div>
+
+    <div class="layer-label"><b>LAYER C</b> — BEHAVIORAL CHALLENGE</div>
+    <div class="field"><input id="behaviorPhrase" type="text" placeholder="Type: vault x verifies my rhythm" autocomplete="off"></div>
+    <div class="layer-label"><b>LAYER D</b> — POSSESSION KEY</div>
+    <div class="field"><input id="layerDKey" type="password" placeholder="Enter your Layer D key" autocomplete="off"></div>
+    <div class="layer-label"><b>LAYER E</b> — DEVICE + GEOFENCE</div>
+    <div class="field"><input value="Fresh geolocation required at login" disabled></div>
+
+    <div class="gates">
+      <div class="gate">
+        <div class="gate-left"><span class="tag">[C]</span> Behavioral</div>
+        <div class="status waiting" id="gateC"><span class="sdot"></span>Waiting</div>
+      </div>
+      <div class="gate">
+        <div class="gate-left"><span class="tag">[D]</span> ZKP</div>
+        <div class="status waiting" id="gateD"><span class="sdot"></span>Waiting</div>
+      </div>
+      <div class="gate">
+        <div class="gate-left"><span class="tag">[E]</span> Device</div>
+        <div class="status waiting" id="gateE"><span class="sdot"></span>Waiting</div>
+      </div>
+    </div>
+
+    <div class="progress"><div class="fill" id="progFill" style="width:40%"></div></div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="loginBtn">🔒 LOGIN</button>
+      <button class="btn btn-secondary" id="setupBtn">⚙️ SETUP (FIRST TIME)</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="overlay" id="setupOverlay">
+    <div class="modal" id="setupStep1">
+      <h3>Set up VAULT-X</h3>
+      <p>This device already reports a configured vault, but its credentials weren't created by you. Set a new passphrase to (re)configure the vault for this device.</p>
+      <div class="warn-box" id="resetWarn" style="display:none;">⚠ This will overwrite the existing vault configuration on this device. Any previous TOTP/passphrase for it will stop working.</div>
+      <div class="field" id="recoveryField" style="display:none;"><input id="setupRecovery" type="password" placeholder="Existing offline recovery key"></div>
+      <div class="field"><input id="setupPass1" type="password" placeholder="New passphrase (min 8 characters)"></div>
+      <div class="field"><input id="setupPass2" type="password" placeholder="Confirm passphrase"></div>
+      <div class="field"><input id="setupBehaviorPhrase" type="text" placeholder="Type: vault x verifies my rhythm" autocomplete="off"></div>
+      <div class="field"><input id="setupGeofenceRadius" type="number" min="50" max="100000" value="500" placeholder="Layer E radius in meters"></div>
+      <div class="msg err" id="setupMsg1" style="text-align:left;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="setupCancel1">Cancel</button>
+        <button class="btn btn-primary" id="setupCreate">Create Vault</button>
+      </div>
+    </div>
+
+    <div class="modal" id="setupStep2" style="display:none;">
+      <h3>Add your authenticator</h3>
+      <p>Scan or manually enter this secret in Google Authenticator / Authy, then confirm below to finish setup.</p>
+      <div class="qr-wrap"><img id="totpQr" alt="Authenticator setup QR code"></div>
+      <div class="secret-row"><div class="secret-box" id="totpSecretOut"></div><button class="copy-btn" data-copy="totpSecretOut">Copy</button></div>
+      <p><b>Offline recovery key — store this securely. It will not be shown again.</b></p>
+      <div class="secret-row"><div class="secret-box" id="recoveryKeyOut"></div><button class="copy-btn" data-copy="recoveryKeyOut">Copy</button></div>
+      <p><b>Layer D possession key — required at every login.</b></p>
+      <div class="secret-row"><div class="secret-box" id="layerDKeyOut"></div><button class="copy-btn" data-copy="layerDKeyOut">Copy</button></div>
+      <div class="field"><input id="setupTotpConfirm" type="text" maxlength="6" placeholder="Enter 6-digit code to confirm"></div>
+      <div class="msg err" id="setupMsg2" style="text-align:left;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="setupDone">Done — I'll log in now</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+function captureRhythm(input){
+  const timings=[]; let previous=0;
+  input.addEventListener('keydown', event=>{
+    if(event.key.length!==1 && event.key!=='Backspace') return;
+    const now=performance.now();
+    if(previous) timings.push(Math.round(now-previous));
+    previous=now;
+  });
+  input.addEventListener('input', ()=>{ if(!input.value){timings.length=0;previous=0;} });
+  return timings;
+}
+const REQUIRED_BEHAVIOR_PHRASE='vault x verifies my rhythm';
+const loginRhythm=captureRhythm(document.getElementById('behaviorPhrase'));
+const setupRhythm=captureRhythm(document.getElementById('setupBehaviorPhrase'));
+function requestLocation(options){
+  return new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(
+    pos=>resolve({
+      latitude:pos.coords.latitude,
+      longitude:pos.coords.longitude,
+      accuracy:pos.coords.accuracy
+    }),
+    reject,
+    options
+  ));
+}
+async function currentLocation(){
+  if(!navigator.geolocation) throw new Error('Windows Location Services are unavailable.');
+  try {
+    return await requestLocation({enableHighAccuracy:true,timeout:15000,maximumAge:0});
+  } catch(firstError) {
+    if(firstError && firstError.code===1) {
+      throw new Error('Allow location access in Windows Settings to use Layer E.');
+    }
+    try {
+      return await requestLocation({enableHighAccuracy:false,timeout:20000,maximumAge:300000});
+    } catch(secondError) {
+      throw new Error('Layer E could not obtain a Windows location reading. Enable Location Services and try again.');
+    }
+  }
+}
+let timeLeft = 30;
+setInterval(()=>{
+  timeLeft = timeLeft<=0?30:timeLeft-1;
+  document.getElementById('totpTimer').textContent = timeLeft;
+},1000);
+
+function setGate(id, state){
+  const el = document.getElementById(id);
+  el.className = 'status ' + state;
+  el.innerHTML = '<span class="sdot"></span>' + (state==='pass'?'Pass':state==='fail'?'Fail':'Waiting');
+}
+
+document.getElementById('eyeToggle').addEventListener('click', ()=>{
+  const p = document.getElementById('pass');
+  p.type = p.type === 'password' ? 'text' : 'password';
+});
+
+document.getElementById('setupBtn').addEventListener('click', async ()=>{
+  const status = await pywebview.api.get_status();
+  document.getElementById('resetWarn').style.display = status.setup_complete ? 'block' : 'none';
+  document.getElementById('recoveryField').style.display = status.setup_complete ? 'flex' : 'none';
+  document.getElementById('setupStep1').style.display = 'block';
+  document.getElementById('setupStep2').style.display = 'none';
+  document.getElementById('setupOverlay').classList.add('show');
+});
+
+document.getElementById('setupCancel1').addEventListener('click', ()=>{
+  document.getElementById('setupOverlay').classList.remove('show');
+});
+
+document.getElementById('setupCreate').addEventListener('click', async ()=>{
+  const p1 = document.getElementById('setupPass1').value;
+  const p2 = document.getElementById('setupPass2').value;
+  const m = document.getElementById('setupMsg1');
+  if(p1.length < 8){ m.textContent = 'Passphrase must be at least 8 characters.'; return; }
+  if(p1 !== p2){ m.textContent = 'Passphrases do not match.'; return; }
+  if(document.getElementById('setupBehaviorPhrase').value !== REQUIRED_BEHAVIOR_PHRASE){
+    m.textContent = 'Type the behavioral challenge exactly as shown.'; return;
+  }
+  m.textContent = 'Creating vault...';
+
+  const recovery = document.getElementById('setupRecovery').value;
+  let setupLocation;
+  try { setupLocation = await currentLocation(); }
+  catch(error) { m.textContent = error.message; return; }
+  const radius = Number(document.getElementById('setupGeofenceRadius').value);
+  const res = await pywebview.api.setup(p1, recovery, setupRhythm, setupLocation, radius);
+  if(!res.ok){ m.textContent = res.message; return; }
+
+  document.getElementById('totpSecretOut').textContent = res.totp_secret;
+  document.getElementById('recoveryKeyOut').textContent = res.recovery_key;
+  document.getElementById('layerDKeyOut').textContent = res.layer_d_key;
+  document.getElementById('totpQr').src = res.totp_qr_data_url;
+  document.getElementById('setupStep1').style.display = 'none';
+  document.getElementById('setupStep2').style.display = 'block';
+});
+
+document.getElementById('setupDone').addEventListener('click', async ()=>{
+  const code = document.getElementById('setupTotpConfirm').value.trim();
+  const setupMessage = document.getElementById('setupMsg2');
+  if(!/^\d{6}$/.test(code)){
+    setupMessage.textContent='Enter the current 6-digit authenticator code.';
+    return;
+  }
+  const confirmation = await pywebview.api.verify_setup_totp(code);
+  if(!confirmation.ok){
+    setupMessage.textContent=confirmation.message;
+    return;
+  }
+  document.getElementById('setupOverlay').classList.remove('show');
+  const msg = document.getElementById('msg');
+  msg.className='msg ok'; msg.textContent='Vault ready. Log in with your new TOTP code + passphrase.';
+});
+
+document.querySelectorAll('[data-copy]').forEach(button=>{
+  button.addEventListener('click', async ()=>{
+    const value=document.getElementById(button.dataset.copy).textContent.trim();
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch(error) {
+      const area=document.createElement('textarea');
+      area.value=value; area.style.position='fixed'; area.style.opacity='0';
+      document.body.appendChild(area); area.select();
+      document.execCommand('copy'); area.remove();
+    }
+    const old=button.textContent; button.textContent='Copied';
+    setTimeout(()=>button.textContent=old,1200);
+  });
+});
+
+document.getElementById('loginBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('loginBtn');
+  const msg = document.getElementById('msg');
+  const totp = document.getElementById('totp').value.trim();
+  const pass = document.getElementById('pass').value;
+  const behaviorPhrase = document.getElementById('behaviorPhrase').value;
+  const layerDKey = document.getElementById('layerDKey').value;
+
+  if(!totp || !pass || !layerDKey){
+    msg.className='msg err'; msg.textContent='Complete Layers A, B, and D.';
+    return;
+  }
+  if(behaviorPhrase !== REQUIRED_BEHAVIOR_PHRASE){
+    msg.className='msg err'; msg.textContent='Type the Layer C challenge exactly as shown.';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'AUTHENTICATING...';
+  document.getElementById('progFill').style.width='60%';
+  ['gateC','gateD','gateE'].forEach(g=>setGate(g,'waiting'));
+
+  let loginLocation;
+  try { loginLocation = await currentLocation(); }
+  catch(error) {
+    setGate('gateE','fail');
+    msg.className='msg err'; msg.textContent=error.message;
+    btn.disabled=false; btn.textContent='🔒 LOGIN';
+    return;
+  }
+  const result = await pywebview.api.login(totp, pass, loginRhythm, layerDKey, loginLocation);
+
+  document.getElementById('progFill').style.width='100%';
+  setGate('gateC', result.layers.C ? 'pass':'fail');
+  setGate('gateD', result.layers.D ? 'pass':'fail');
+  setGate('gateE', result.layers.E ? 'pass':'fail');
+
+  if(result.ok){
+    msg.className='msg ok'; msg.textContent='All layers passed. Access granted.';
+    setTimeout(async ()=>{
+      const dashboardUrl = await pywebview.api.go_dashboard();
+      window.location.href = dashboardUrl;
+    }, 500);
+  } else if(result.locked){
+    msg.className='msg err'; msg.textContent='Device locked. Try again later.';
+  } else {
+    msg.className='msg err'; msg.textContent='Authentication failed: layer(s) ' + result.failed.join(', ') + ' did not pass.';
+  }
+  btn.disabled = false; btn.textContent = '🔒 LOGIN';
+  document.getElementById('progFill').style.width='40%';
+});
+</script>
+</body>
+</html>

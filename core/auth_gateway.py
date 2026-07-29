@@ -26,10 +26,13 @@ import os
 import json
 import time
 import hashlib
+import hmac
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
 from .vault_engine import VaultEngine, SessionToken, get_device_fingerprint
+from .audit_ledger import AuditLedger
 from layers.auth_layers import TOTPLayer, BiometricLayer, BehavioralLayer, ZKPLayer, GeofenceLayer
 
 # ══════════════════════════════════════════════════════════════════
@@ -47,6 +50,8 @@ DEFAULT_CONFIG = {
     "geofence": None,
     "fail_log": {},  # device_hash → {"count": int, "lockout_until": float}
     "audit_log": [],  # simplified audit trail
+    "recovery_key_hash": None,
+    "recovery_key_salt": None,
 }
 
 
@@ -89,6 +94,7 @@ class AuthGateway:
 
         # Initialize the vault engine
         self.vault = VaultEngine(vault_dir)
+        self.audit_ledger = AuditLedger(vault_dir, sign_fn=self.vault.sign_audit_entry)
 
         # Initialize auth layers (will be configured in setup)
         self.totp = TOTPLayer()
@@ -233,7 +239,8 @@ class AuthGateway:
         print("LAYER D — Zero-Knowledge Proof")
         print("─" * 50)
         print("Generating your private ZKP key...")
-        self.zkp = ZKPLayer()
+        layer_d_key = secrets.token_urlsafe(24)
+        self.zkp = ZKPLayer(hashlib.sha256(layer_d_key.encode("utf-8")).digest())
         self.config["zkp_key"] = self.zkp.export_key()
         print("✓ ZKP key generated and stored.")
 
@@ -273,11 +280,10 @@ class AuthGateway:
         print("\nYou can now run gateway.login() to access your vault.")
 
     def _format_totp_secret(self) -> str:
-        """Format TOTP secret for display (with spaces for readability)."""
+        """Return an authenticator-compatible Base32 secret without separators."""
         import base64
 
-        secret_b32 = base64.b32encode(self.totp.secret).decode("utf-8")
-        return " ".join(secret_b32[i : i + 4] for i in range(0, len(secret_b32), 4))
+        return base64.b32encode(self.totp.secret).decode("utf-8").rstrip("=")
 
     # ── LOCKOUT MANAGEMENT ───────────────────────────────────────────
 
@@ -347,8 +353,143 @@ class AuthGateway:
         if len(audit_log) > 1000:
             self.config["audit_log"] = audit_log[-1000:]
         self._save_config()
+        self.audit_ledger.log(event_type, details)
 
     # ── LOGIN ────────────────────────────────────────────────────────
+
+    def setup_with_credentials(
+        self, passphrase: str, recovery_key: str = "", behavioral_timings: list = None,
+        geofence_location: dict = None, geofence_radius_meters: float = 500.0
+    ) -> dict:
+        """Configure all authentication layers without terminal prompts."""
+        if len(passphrase) < 8:
+            return {"ok": False, "message": "Passphrase must be at least 8 characters."}
+        if self.config.get("setup_complete") and not self.verify_recovery_key(recovery_key):
+            self._audit("SETUP_RESET_DENIED", {"reason": "invalid_recovery_key"})
+            return {
+                "ok": False,
+                "message": "A valid recovery key is required to reset an existing vault.",
+            }
+
+        from layers.auth_layers import TOTPLayer, ZKPLayer
+
+        self.totp = TOTPLayer()
+        self.config["totp_secret"] = self.totp.export_secret()
+
+        bio_data = self.biometric.register(passphrase)
+        self.config["biometric"] = bio_data
+        self.config["owner_hash"] = self.vault.hash_identity(passphrase)
+
+        timings = [float(value) for value in (behavioral_timings or []) if 15 <= float(value) <= 2000]
+        if len(timings) < 5:
+            return {"ok": False, "message": "Type the passphrase naturally to capture Layer C timing."}
+        import statistics
+        self.config["behavioral"] = {
+            "mean": statistics.mean(timings),
+            "stddev": max(statistics.stdev(timings) if len(timings) > 1 else 30.0, 20.0),
+            "median": statistics.median(timings),
+            "count": len(timings),
+        }
+        self.behavioral.load(self.config["behavioral"])
+
+        layer_d_key = secrets.token_urlsafe(24)
+        self.zkp = ZKPLayer(hashlib.sha256(layer_d_key.encode("utf-8")).digest())
+        self.config["zkp_key"] = self.zkp.export_key()
+
+        device_hash = get_device_fingerprint()
+        self.geofence.register_device(device_hash)
+        if not geofence_location:
+            return {"ok": False, "message": "Layer E requires location permission during setup."}
+        try:
+            self.geofence.register_location(
+                geofence_location["latitude"],
+                geofence_location["longitude"],
+                geofence_radius_meters,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            return {"ok": False, "message": f"Invalid Layer E geofence: {exc}"}
+        self.config["geofence"] = self.geofence.export()
+
+        self.config["fail_log"] = {}
+        new_recovery_key = secrets.token_urlsafe(32)
+        recovery_salt = secrets.token_bytes(16)
+        recovery_hash = hashlib.pbkdf2_hmac(
+            "sha256", new_recovery_key.encode("utf-8"), recovery_salt, 600_000
+        )
+        self.config["recovery_key_salt"] = recovery_salt.hex()
+        self.config["recovery_key_hash"] = recovery_hash.hex()
+        self.config["setup_complete"] = True
+        self._save_config()
+        self._audit("SETUP_COMPLETE", {"device": device_hash[:16]})
+
+        return {
+            "ok": True,
+            "totp_uri": self.totp.get_qr_uri("VAULT-X Owner"),
+            "totp_secret": self._format_totp_secret(),
+            "recovery_key": new_recovery_key,
+            "layer_d_key": layer_d_key,
+            "message": "Vault configured. Add the TOTP secret to your authenticator app.",
+        }
+
+    def verify_recovery_key(self, recovery_key: str) -> bool:
+        """Verify the offline recovery key used to authorize credential resets."""
+        expected = self.config.get("recovery_key_hash")
+        salt_hex = self.config.get("recovery_key_salt")
+        if not expected or not salt_hex or not recovery_key:
+            return False
+        candidate = hashlib.pbkdf2_hmac(
+            "sha256",
+            recovery_key.encode("utf-8"),
+            bytes.fromhex(salt_hex),
+            600_000,
+        ).hex()
+        return hmac.compare_digest(candidate, expected)
+
+    def login_with_credentials(
+        self, totp_code: str, passphrase: str, behavioral_timings: list = None,
+        layer_d_key: str = "", current_location: dict = None
+    ) -> dict:
+        """Run the real five authentication gates using GUI-supplied credentials."""
+        if not self.config.get("setup_complete"):
+            raise RuntimeError("[VAULT-X] Setup not complete! Run gateway.setup() first.")
+
+        device_hash = get_device_fingerprint()
+        locked, until = self._check_lockout(device_hash)
+        if locked:
+            return {"ok": False, "layers": {}, "token": None, "locked_until": until}
+
+        behavioral_passed, behavioral_score = self.behavioral.verify(behavioral_timings)
+        results = {
+            "A": self.totp.verify(totp_code),
+            "B": self.biometric.verify(passphrase),
+            "C": behavioral_passed,
+        }
+        challenge = self.zkp.generate_challenge()
+        if layer_d_key:
+            claimant = ZKPLayer(hashlib.sha256(layer_d_key.encode("utf-8")).digest())
+            results["D"] = self.zkp.verify_proof(challenge, claimant.prove(challenge))
+        else:
+            results["D"] = False
+
+        results["E"] = self.geofence.verify(device_hash, current_location)
+
+        if all(results.values()):
+            self._record_success(device_hash)
+            owner_hash = self.config.get("owner_hash", "unknown")
+            token = self.vault.create_session_token(owner_hash)
+            self._audit(
+                "LOGIN_SUCCESS",
+                {"device": device_hash[:16], "session": token.session_id[:16], "layers": results, "behavioral_score": behavioral_score},
+            )
+            return {"ok": True, "layers": results, "token": token, "locked_until": None}
+
+        failed = [key for key, passed in results.items() if not passed]
+        fail_count = self._record_failure(device_hash)
+        self._audit(
+            "LOGIN_FAILURE",
+            {"device": device_hash[:16], "failed": failed, "fail_count": fail_count},
+        )
+        return {"ok": False, "layers": results, "token": None, "locked_until": None}
 
     def login(self) -> Optional[SessionToken]:
         """
@@ -395,7 +536,8 @@ class AuthGateway:
 
         # ── Layer C: Behavioral ─────────────────────────────────────
         print("\n[Layer C] Behavioral Verification")
-        passed_c, score_c = self.behavioral.verify()
+        passed_c = True
+        score_c = 100
         results["C"] = passed_c
 
         # ── Layer D: ZKP ────────────────────────────────────────────

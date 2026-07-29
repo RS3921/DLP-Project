@@ -104,13 +104,19 @@
     .brand-logo {
       width: 42px; height: 42px;
       border-radius: 10px;
-      background: linear-gradient(135deg, var(--accent), var(--red));
+      background: rgba(255, 255, 255, 0.03);
       display: grid;
       place-items: center;
-      font-size: 16px;
-      font-weight: 900;
+      padding: 3px;
+      overflow: hidden;
       flex-shrink: 0;
       box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .brand-logo img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
     }
     .brand-text h1 { font-size: 17px; font-weight: 900; letter-spacing: -0.02em; line-height: 1; }
     .brand-text span { font-size: 11px; color: var(--text-dim); font-weight: 400; }
@@ -486,11 +492,50 @@
     .empty-state { color: var(--text-faint); font-size: 13px; padding: 20px 0; text-align: center; }
 
     /* ── RESPONSIVE ── */
+    .login-screen { position:fixed; inset:0; z-index:100; display:grid; grid-template-columns:1fr 1fr; background:#050506; transition:opacity .35s ease,visibility .35s ease; }
+    .login-screen.hidden { opacity:0; visibility:hidden; pointer-events:none; }
+    .login-visual { position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; background:radial-gradient(circle at 34% 43%,rgba(118,0,10,.78),rgba(35,0,4,.42) 35%,transparent 67%); }
+    .login-brand { width:430px; position:relative; z-index:1; }
+    .login-emblem { width:94px; height:110px; display:grid; place-items:center; color:#ef1530; font-size:72px; filter:drop-shadow(0 0 18px rgba(239,21,48,.34)); margin-bottom:16px; }
+    .login-brand h1 { font-size:46px; font-weight:900; letter-spacing:.04em; line-height:1; }
+    .login-brand h1 span { color:#e5162e; }
+    .login-brand p { color:#8f898f; font-size:12px; margin-top:10px; letter-spacing:.22em; }
+    .login-copy { position:relative; z-index:1; margin-top:28px; max-width:430px; }
+    .login-copy .eyebrow { color:#cf2437; text-transform:uppercase; letter-spacing:.22em; font-size:10px; font-weight:900; }
+    .login-copy h2 { font-size:27px; line-height:1.25; letter-spacing:-.02em; margin:36px 0 18px; }
+    .login-copy > p { max-width:380px; color:#8f898f; line-height:1.65; font-size:12px; }
+    .trust-row { display:flex; gap:24px; margin-top:32px; color:#938d92; font:10px var(--mono); }
+    .trust-pill { white-space:nowrap; }
+    .login-foot { display:none; }
+    .login-form-side { display:grid; place-items:center; padding:36px; background:#030304; }
+    .login-card { width:min(510px,100%); padding:38px 34px 34px; border:1px solid #7a202d; border-radius:16px; background:#0c0b0e; box-shadow:var(--shadow),0 0 70px rgba(130,0,12,.10); }
+    .login-card .shield { display:none; }
+    .login-card h3 { text-align:center; font-size:25px; letter-spacing:-.035em; }
+    .login-card .intro { text-align:center; color:#8e888e; font-size:11px; line-height:1.6; margin:7px 0 28px; }
+    .login-card label { display:block; color:#cf2437; text-transform:uppercase; letter-spacing:.12em; font-size:10px; font-weight:900; margin:0 0 8px; }
+    .login-input-wrap { display:flex; align-items:center; border:1px solid #37161b; background:#15090b; border-radius:10px; padding:0 14px; transition:.2s; margin-bottom:22px; }
+    .login-input-wrap:focus-within { border-color:var(--red); box-shadow:0 0 0 3px var(--red-soft); }
+    .login-input-wrap input { flex:1; min-width:0; color:var(--text); background:transparent; border:0; outline:0; padding:14px 10px; font:13px var(--mono); }
+    .layer-status { border:1px solid #252228; background:#09090b; margin:2px 0 17px; }
+    .layer-row { display:flex; justify-content:space-between; padding:13px 15px; color:#d7d2d5; font-size:11px; border-bottom:1px solid #242126; }
+    .layer-row:last-child { border-bottom:0; }
+    .layer-wait { color:#777278; }
+    .login-progress { height:4px; border-radius:9px; background:linear-gradient(90deg,#e3132a 32%,#242126 32%); margin-bottom:20px; }
+    .login-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .login-submit { width:100%; padding:14px; border:0; border-radius:9px; background:linear-gradient(135deg,#c80e25,#f0182e); color:white; font:800 12px var(--display); cursor:pointer; box-shadow:0 10px 30px var(--red-glow); }
+    .login-submit:hover { filter:brightness(1.12); transform:translateY(-1px); }
+    .login-error { min-height:20px; color:var(--red); font-size:11px; margin-top:12px; }
+    .setup-submit { width:100%; padding:14px; border:1px solid #452029; border-radius:9px; background:#19171b; color:#f0ecee; font:800 11px var(--display); cursor:pointer; }
+    .login-note { text-align:center; margin-top:10px; color:#574b4e; font-size:10px; line-height:1.5; }
+
     @media (max-width: 1240px) {
       .metrics { grid-template-columns: repeat(3, minmax(0,1fr)); }
       .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
     }
     @media (max-width: 900px) {
+      .login-screen { grid-template-columns:1fr; overflow:auto; }
+      .login-visual { min-height:390px; padding:40px; border-bottom:1px solid var(--border-hi); }
+      .login-foot { display:none; }
       .app { grid-template-columns: 1fr; }
       .sidebar { height: auto; position: static; flex-direction: row; flex-wrap: wrap; }
       .nav { flex-direction: row; flex-wrap: wrap; }
@@ -508,11 +553,55 @@
   <canvas id="bgCanvas"></canvas>
   <div class="noise-overlay"></div>
 
+  <section class="login-screen" id="loginScreen" aria-label="Administrator login">
+    <div class="login-visual">
+      <div>
+        <div class="login-brand">
+          <div class="login-emblem">◇</div>
+          <h1>VAULT-<span>X</span></h1>
+          <p>PERSONAL DATA VAULT</p>
+        </div>
+        <div class="login-copy">
+          <div class="eyebrow">━━━━ &nbsp; 5-LAYER AUTHENTICATION</div>
+          <h2>Your data. Your control.<br>Our technology.</h2>
+          <p>Advanced 5-layer security to protect what matters most — you.</p>
+        </div>
+        <div class="trust-row">
+          <span class="trust-pill">💎 SECURE</span>
+          <span class="trust-pill">🔒 PRIVATE</span>
+          <span class="trust-pill">◆ ENCRYPTED</span>
+        </div>
+      </div>
+    </div>
+    <div class="login-form-side">
+      <form class="login-card" id="loginForm">
+        <h3>Welcome back</h3>
+        <p class="intro">Login to access your secure vault</p>
+        <label for="loginTotp">Layer A — TOTP Code</label>
+        <div class="login-input-wrap"><span>🔒</span><input id="loginTotp" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit code"></div>
+        <label for="loginApiKey">Layer B — Passphrase</label>
+        <div class="login-input-wrap"><span>🔒</span><input id="loginApiKey" type="password" autocomplete="current-password" placeholder="Enter your passphrase" required></div>
+        <div class="layer-status">
+          <div class="layer-row"><span>[C] &nbsp; Behavioral</span><span class="layer-wait">● Waiting</span></div>
+          <div class="layer-row"><span>[D] &nbsp; ZKP</span><span class="layer-wait">● Waiting</span></div>
+          <div class="layer-row"><span>[E] &nbsp; Device</span><span class="layer-wait">● Waiting</span></div>
+        </div>
+        <div class="login-progress"></div>
+        <div class="login-actions">
+          <button class="login-submit" id="loginSubmit" type="submit">🔒 &nbsp; LOGIN</button>
+          <button class="setup-submit" id="setupLoginBtn" type="button">⚙ &nbsp; SETUP (FIRST TIME)</button>
+        </div>
+        <div class="login-error" id="loginError" role="alert"></div>
+        <div class="login-note">Use your configured administrator key in the passphrase field.</div>
+      </form>
+    </div>
+  </section>
+
   <div class="app">
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-logo">VX</div>
+        <div class="brand-logo"><img src="/assets/logo.png" alt="VAULT-X logo"></div>
         <div class="brand-text">
           <h1>VAULT-X</h1>
           <span>Enterprise DLP · AD Integrated</span>
@@ -522,11 +611,13 @@
       <div>
         <div class="sidebar-label">Monitoring</div>
         <nav class="nav">
+          <button class="nav-btn" data-tab="vault"><span class="nav-icon">🔐</span> File Vault</button>
           <button class="nav-btn active" data-tab="overview"><span class="nav-icon">◆</span> Overview</button>
           <button class="nav-btn" data-tab="users"><span class="nav-icon">👤</span> AD Users <span class="nav-badge" id="usersCount">-</span></button>
           <button class="nav-btn" data-tab="ou"><span class="nav-icon">🗂</span> OU Analytics</button>
           <button class="nav-btn" data-tab="devices"><span class="nav-icon">💻</span> Devices</button>
           <button class="nav-btn" data-tab="events"><span class="nav-icon">⚡</span> Events <span class="nav-badge" id="eventsBadge">-</span></button>
+          <button class="nav-btn" data-tab="compliance"><span class="nav-icon">✓</span> Compliance</button>
         </nav>
       </div>
 
@@ -594,6 +685,11 @@
             <div id="policyCount" class="metric-value">-</div>
             <div class="metric-foot">Active DLP policies</div>
           </div>
+          <div class="metric amber">
+            <div class="metric-label">Compliance</div>
+            <div id="complianceScore" class="metric-value">-</div>
+            <div class="metric-foot">Automated control readiness</div>
+          </div>
         </div>
 
         <div class="grid-2">
@@ -637,6 +733,59 @@
       </section>
 
       <!-- ════════════ AD USERS ════════════ -->
+      <section id="vault" class="panel">
+        <div class="metrics">
+          <div class="metric green">
+            <div class="metric-label">Outer Encryption</div>
+            <div class="metric-value" style="font-size:22px">AES-256</div>
+            <div class="metric-foot">GCM authenticated encryption</div>
+          </div>
+          <div class="metric cyan">
+            <div class="metric-label">Inner Encryption</div>
+            <div class="metric-value" style="font-size:22px">ChaCha20</div>
+            <div class="metric-foot">Poly1305 authenticated encryption</div>
+          </div>
+          <div class="metric purple">
+            <div class="metric-label">Authorization</div>
+            <div class="metric-value" style="font-size:22px">5 Layers</div>
+            <div class="metric-foot">Required for every operation</div>
+          </div>
+        </div>
+        <div class="grid-2 mb">
+          <div class="card">
+            <div class="card-head"><h3>Protect a File</h3><span class="pill online">ENCRYPT</span></div>
+            <div class="card-body">
+              <p style="color:var(--text-dim);font-size:13px;line-height:1.65;margin-bottom:16px;">
+                Choose any file and save an authenticated <code>.vault</code> copy. The original remains untouched.
+              </p>
+              <button class="btn primary" id="encryptFileBtn">Choose File to Encrypt</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Restore a File</h3><span class="pill accent">DECRYPT</span></div>
+            <div class="card-body">
+              <p style="color:var(--text-dim);font-size:13px;line-height:1.65;margin-bottom:16px;">
+                Choose a <code>.vault</code> file. Altered packages are rejected before any output is written.
+              </p>
+              <button class="btn" id="decryptFileBtn">Choose Vault File to Decrypt</button>
+            </div>
+          </div>
+        </div>
+        <div class="card mb">
+          <div class="card-head"><h3>File Vault Status</h3><span class="pill" id="vaultBusy">READY</span></div>
+          <div class="card-body"><pre id="vaultResult">Select Encrypt or Decrypt to begin.</pre></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Protected File History</h3><button class="btn ghost" id="refreshVaultBtn">↺ Refresh</button></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Original File</th><th>Vault Location</th><th>Size</th><th>Encrypted</th><th>Status</th></tr></thead>
+              <tbody id="vaultFilesBody"><tr><td colspan="5" class="empty-state">No protected files recorded.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <section id="users" class="panel">
         <div class="toolbar" style="padding:0 0 14px;">
           <input id="userSearch" placeholder="Search by name, UPN, SID, OU, department, group…">
@@ -780,6 +929,41 @@
               <pre id="eventDetail">Select an event to inspect raw metadata, ML verdict, score, and reasons.</pre>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- COMPLIANCE -->
+      <section id="compliance" class="panel">
+        <div class="metrics">
+          <div class="metric amber">
+            <div class="metric-label">Overall Readiness</div>
+            <div id="complianceOverall" class="metric-value">-</div>
+            <div class="metric-foot">Automated evidence checks</div>
+          </div>
+          <div class="metric green">
+            <div class="metric-label">Controls Passing</div>
+            <div id="compliancePassed" class="metric-value">-</div>
+            <div class="metric-foot">Current evaluated controls</div>
+          </div>
+          <div class="metric cyan">
+            <div class="metric-label">Frameworks</div>
+            <div id="complianceFrameworkCount" class="metric-value">-</div>
+            <div class="metric-foot">ISO 27001, GDPR, SOC 2</div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3>Framework Readiness</h3></div>
+            <div class="card-body" id="complianceFrameworks"><div class="empty-state">No compliance data loaded.</div></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Evidence Summary</h3></div>
+            <div class="card-body" style="padding-top:0;"><pre id="complianceEvidence">Load data to evaluate evidence.</pre></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Control Assessment</h3><span class="pill accent">Automated</span></div>
+          <div class="card-body" id="complianceControls"><div class="empty-state">No controls loaded.</div></div>
         </div>
       </section>
 
@@ -970,16 +1154,18 @@
     ═══════════════════════════════════ */
     const PAGE_META = {
       overview: { eyebrow: 'Security Operations', title: 'Fleet Overview', sub: 'Monitor Windows endpoints, AD users, OU structure, DLP policies, and live ML threat signals.' },
-      users:    { eyebrow: 'Active Directory', title: 'AD User Registry', sub: 'Full user data extracted from Windows Server AD — identity, OU, SID, groups, device, policy, status.' },
+      vault:    { eyebrow: 'Personal Protection', title: 'File Vault', sub: 'Encrypt and restore files locally using authenticated durable vault packages.' },
+      users:    { eyebrow: 'Identity Inventory', title: 'Reported User Registry', sub: 'Identity fields reported by enrolled agents. Unavailable AD attributes are explicitly marked as not reported.' },
       ou:       { eyebrow: 'Active Directory', title: 'OU Analytics', sub: 'Analyse all 50+ users distributed across Organizational Units. Map OUs to DLP policies and drill into per-OU user lists.' },
       devices:  { eyebrow: 'Endpoint Management', title: 'Managed Devices', sub: 'Enrolled Windows laptops with full AD computer object metadata — DN, SAM, OU, managedBy user, policy, trust state.' },
       events:   { eyebrow: 'Threat Detection', title: 'Security Events', sub: 'Endpoint telemetry with ML verdict, severity score, detection reasons, and raw event metadata.' },
+      compliance: { eyebrow: 'Governance', title: 'Compliance Readiness', sub: 'Automated evidence checks mapped to ISO/IEC 27001, GDPR, and SOC 2 controls.' },
       policies: { eyebrow: 'DLP Management', title: 'Policy Inventory', sub: 'Server-side DLP policy objects. View rules, blocked extensions, mode, and OU/group assignments.' },
       ad:       { eyebrow: 'Active Directory', title: 'AD Configuration', sub: 'LDAPS connection config, OU-to-policy mapping, admin role groups, and enrollment decision flow.' },
       ops:      { eyebrow: 'Agent Management', title: 'Agent Operations', sub: 'Rotate tokens, revoke compromised endpoints, restore devices, manage enrollment token rotation.' },
     };
 
-    let currentAgents = [], currentEvents = [], currentPolicies = [];
+    let currentAgents = [], currentEvents = [], currentPolicies = [], currentCompliance = null;
 
     function setTab(name) {
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
@@ -988,12 +1174,67 @@
       document.getElementById('pageEyebrow').textContent = m.eyebrow;
       document.getElementById('pageTitle').textContent = m.title;
       document.getElementById('pageSubtitle').textContent = m.sub;
+      if (name === 'vault') refreshFileVault();
     }
 
     function esc(v) {
       return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
     function fmtTime(ts) { if (!ts) return 'never'; return new Date(ts * 1000).toLocaleString(); }
+    function fmtBytes(bytes) {
+      const value = Number(bytes || 0);
+      if (value < 1024) return `${value} B`;
+      if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+      return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    async function refreshFileVault() {
+      const body = document.getElementById('vaultFilesBody');
+      if (!window.pywebview?.api?.list_file_vault) {
+        body.innerHTML = '<tr><td colspan="5" class="empty-state">File Vault is available only in the native VAULT-X application.</td></tr>';
+        return;
+      }
+      const result = await window.pywebview.api.list_file_vault();
+      if (!result.ok) {
+        body.innerHTML = `<tr><td colspan="5" class="empty-state">${esc(result.message)}</td></tr>`;
+        return;
+      }
+      body.innerHTML = (result.files || []).map(file => `
+        <tr>
+          <td><div style="font-weight:700">${esc(file.name)}</div></td>
+          <td><code>${esc(file.path)}</code></td>
+          <td>${fmtBytes(file.bytes)}</td>
+          <td>${fmtTime(file.encrypted_at)}</td>
+          <td><span class="pill ${file.exists ? 'online' : 'offline'}">${file.exists ? esc(file.status || 'protected') : 'missing'}</span></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="empty-state">No protected files recorded.</td></tr>';
+    }
+
+    async function runFileVaultAction(method) {
+      const resultBox = document.getElementById('vaultResult');
+      const busy = document.getElementById('vaultBusy');
+      const encryptButton = document.getElementById('encryptFileBtn');
+      const decryptButton = document.getElementById('decryptFileBtn');
+      if (!window.pywebview?.api?.[method]) {
+        resultBox.textContent = 'File Vault is available only in the native VAULT-X application.';
+        return;
+      }
+      busy.textContent = 'WORKING';
+      encryptButton.disabled = decryptButton.disabled = true;
+      try {
+        const result = await window.pywebview.api[method]();
+        if (!result.cancelled) {
+          resultBox.textContent = result.ok
+            ? `${result.message}\nSaved to: ${result.output_path}\nSize: ${fmtBytes(result.bytes)}`
+            : `Operation failed: ${result.message}`;
+        }
+        await refreshFileVault();
+      } catch (error) {
+        resultBox.textContent = `Operation failed: ${error}`;
+      } finally {
+        busy.textContent = 'READY';
+        encryptButton.disabled = decryptButton.disabled = false;
+      }
+    }
 
     function statusPill(a) {
       if (a.revoked) return `<span class="pill revoked">revoked</span>`;
@@ -1007,72 +1248,44 @@
       return `<span class="pill ${cls}">ML ${esc(d.verdict)} ${Math.round(d.score*100)}%</span>`;
     }
 
-    /* ── Build synthetic AD user fields ── */
+    /* ── Build truthful agent-reported identity fields ── */
     function buildUserFromAgent(a, idx) {
-      const names = ['Priya Sharma','Ravi Patel','Ananya Nair','Karthik Menon','Deepika Iyer',
-        'Suresh Kumar','Meera Joshi','Arjun Singh','Pooja Reddy','Nikhil Gupta',
-        'Sunita Bose','Rajesh Verma','Kavita Rao','Aditya Mishra','Swati Shah',
-        'Rohit Desai','Neha Trivedi','Vivek Kulkarni','Aishwarya Pillai','Manish Jain',
-        'Divya Krishnan','Sanjay Choudhary','Preeti Dubey','Tarun Saxena','Nisha Kapoor',
-        'Amit Tiwari','Leena Nambiar','Harish Bhatt','Smita Pandey','Gaurav Soni',
-        'Ankita Das','Vijay Rawat','Rekha Mukherjee','Deepak Agarwal','Pallavi Ghosh',
-        'Manoj Yadav','Richa Bansal','Sunil Mehta','Varsha Hegde','Ranjit Malhotra',
-        'Usha Ranganathan','Dinesh Chandra','Shweta Naik','Puneet Arora','Geetha Balaji',
-        'Hemant Shinde','Kavya Deshpande','Ashok Lal','Shreya Bhat','Varun Shetty'];
-      const depts = ['Finance','Engineering','HR','IT Security','Operations','Marketing','Legal','Compliance'];
-      const mgrs  = ['Kalyani.M','Suresh.K','Prabha.R','Anand.V','Shalini.D'];
-      const sids  = ['S-1-5-21-3847382920-918290284-3720921843'];
-      const adGroups = [
-        ['Domain Users','Finance-Team','DLP-Finance-Policy'],
-        ['Domain Users','Engineering-Team','DLP-Eng-Policy','VPN-Users'],
-        ['Domain Users','HR-Team','DLP-HR-Policy'],
-        ['Domain Users','IT-Admins','DLP-IT-Policy','Server-Access'],
-        ['Domain Users','Ops-Team','DLP-Ops-Policy'],
-      ];
-      const name   = a.assigned_user?.split('\\').pop() || names[idx % names.length];
-      const dept   = a.department || depts[idx % depts.length];
-      const sam    = name.toLowerCase().replace(' ','.');
-      const upn    = `${sam}@company.local`;
-      const dn     = `CN=${name},OU=${dept},OU=Users,DC=company,DC=local`;
-      const ou     = a.computer_ou || `OU=${dept},OU=Users,DC=company,DC=local`;
-      const sid    = `${sids[0]}-${1100 + idx}`;
-      const groups = adGroups[idx % adGroups.length];
-      const mgr    = `CN=${mgrs[idx%mgrs.length]},OU=Management,DC=company,DC=local`;
-      const pwdLast = fmtTime(Date.now()/1000 - Math.random()*86400*90);
-      const created = fmtTime(Date.now()/1000 - Math.random()*86400*365*3);
-      const login   = fmtTime(a.last_seen);
+      const rawUser = a.assigned_user || a.username || 'Unreported user';
+      const name = rawUser.split('\\').pop();
+      const sam = a.sam_account_name || name;
+      const dept = a.department || 'Unreported';
       const enabled = !a.revoked;
       return {
-        displayName:       name,
+        displayName:       a.display_name || name,
         sAMAccountName:    sam,
-        userPrincipalName: upn,
-        distinguishedName: dn,
-        ou,
+        userPrincipalName: a.user_principal_name || 'Not reported',
+        distinguishedName: a.user_dn || 'Not reported',
+        ou:                a.computer_ou || a.user_ou || 'Not reported',
         department:        dept,
-        sid,
-        objectGUID:        `{${[...Array(8)].map(()=>Math.floor(Math.random()*65536).toString(16).padStart(4,'0')).join('-')}}`,
-        memberOf:          groups,
+        sid:               a.user_sid || 'Not reported',
+        objectGUID:        a.object_guid || 'Not reported',
+        memberOf:          a.ad_groups || [],
         device:            a.hostname,
         deviceSAM:         a.computer_sam || `${a.hostname}$`,
-        managedBy:         mgr,
+        managedBy:         a.managed_by || 'Not reported',
         policy:            a.policy_id,
         accountEnabled:    enabled,
-        domain:            a.domain || 'COMPANY',
+        domain:            a.domain || 'Not reported',
         ipAddress:         a.ip_address,
         os:                a.os,
-        lastLogon:         login,
-        passwordLastSet:   pwdLast,
-        whenCreated:       created,
+        lastLogon:         fmtTime(a.last_seen),
+        passwordLastSet:   a.password_last_set ? fmtTime(a.password_last_set) : 'Not reported',
+        whenCreated:       a.when_created ? fmtTime(a.when_created) : 'Not reported',
         lockoutTime:       enabled ? 'Not locked' : fmtTime(a.last_seen),
-        logonCount:        Math.floor(Math.random()*2000+100),
-        mail:              `${sam}@company.com`,
-        telephoneNumber:   `+91 98${Math.floor(10000000+Math.random()*89999999)}`,
-        title:             ['Senior Analyst','Manager','Engineer','Team Lead','Specialist'][idx%5],
-        company:           'Company Pvt. Ltd.',
-        streetAddress:     `${100+idx} Corporate Park, Pune`,
-        l:                 'Pune',
-        st:                'Maharashtra',
-        c:                 'IN',
+        logonCount:        a.logon_count ?? 'Not reported',
+        mail:              a.mail || 'Not reported',
+        telephoneNumber:   a.telephone_number || 'Not reported',
+        title:             a.title || 'Not reported',
+        company:           a.company || 'Not reported',
+        streetAddress:     a.street_address || 'Not reported',
+        l:                 a.city || 'Not reported',
+        st:                a.state || 'Not reported',
+        c:                 a.country || 'Not reported',
         userAccountControl: enabled ? '512 (Normal Account)' : '514 (Disabled)',
         primaryGroupID:    '513 (Domain Users)',
         agentStatus:       enabled ? (a.online ? 'Online' : 'Offline') : 'Revoked',
@@ -1405,6 +1618,34 @@
       if (currentPolicies[0]) document.getElementById('policyView').textContent = JSON.stringify(currentPolicies[0], null, 2);
     }
 
+    function renderCompliance() {
+      const report = currentCompliance || {};
+      const score = Number(report.score || 0);
+      document.getElementById('complianceScore').textContent = `${score}%`;
+      document.getElementById('complianceOverall').textContent = `${score}%`;
+      document.getElementById('compliancePassed').textContent =
+        `${report.passed_controls || 0}/${report.total_controls || 0}`;
+      document.getElementById('complianceFrameworkCount').textContent =
+        (report.frameworks || []).filter(f => f.enabled).length;
+      document.getElementById('complianceFrameworks').innerHTML =
+        (report.frameworks || []).map(f => `
+          <div class="policy-item">
+            <div class="policy-name">${esc(f.name)}</div>
+            <span class="pill ${f.score === 100 ? 'online' : 'medium'}">${esc(f.score)}%</span>
+            <div class="td-sub" style="margin-top:6px">${esc(f.passed_controls)} of ${esc(f.total_controls)} controls passing</div>
+          </div>`).join('') || '<div class="empty-state">No frameworks configured.</div>';
+      document.getElementById('complianceControls').innerHTML =
+        (report.controls || []).map(c => `
+          <div class="policy-item">
+            <div class="policy-name">${esc(c.title)}</div>
+            <span class="pill ${c.status === 'pass' ? 'online' : 'medium'}">${c.status === 'pass' ? 'PASS' : 'ATTENTION'}</span>
+            <div class="td-sub" style="margin-top:6px">${esc(c.evidence)}</div>
+            <div class="td-sub" style="margin-top:4px">${esc(c.frameworks.join(' · '))}</div>
+          </div>`).join('') || '<div class="empty-state">No controls configured.</div>';
+      document.getElementById('complianceEvidence').textContent =
+        JSON.stringify(report.evidence_summary || {}, null, 2);
+    }
+
     /* ── API ── */
     async function api(path, opts={}) {
       const key = document.getElementById('apiKey').value.trim();
@@ -1425,19 +1666,22 @@
       btn.disabled = true;
       try {
         st.textContent = 'Loading live data from server…';
-        const [summary, agentsRes, eventsRes, policiesRes] = await Promise.all([
+        const [summary, agentsRes, eventsRes, policiesRes, complianceRes] = await Promise.all([
           api('/v1/enterprise/summary'),
           api('/v1/agents'),
           api('/v1/events?limit=100'),
           api('/v1/policies'),
+          api('/v1/compliance'),
         ]);
         currentAgents   = agentsRes.agents   || [];
         currentEvents   = eventsRes.events   || [];
         currentPolicies = policiesRes.policies || [];
+        currentCompliance = complianceRes;
         renderMetrics(summary);
         renderDevices();
         renderEvents();
         renderPolicies();
+        renderCompliance();
         renderUserTable(currentAgents);
         renderOUBarChart(currentAgents);
         st.textContent = `Live data refreshed at ${new Date().toLocaleTimeString()}`;
@@ -1463,6 +1707,9 @@
     document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
     document.querySelectorAll('[data-jump]').forEach(b => b.addEventListener('click', () => setTab(b.dataset.jump)));
     document.getElementById('refreshBtn').addEventListener('click', refreshConsole);
+    document.getElementById('encryptFileBtn').addEventListener('click', () => runFileVaultAction('encrypt_file'));
+    document.getElementById('decryptFileBtn').addEventListener('click', () => runFileVaultAction('decrypt_file'));
+    document.getElementById('refreshVaultBtn').addEventListener('click', refreshFileVault);
     document.getElementById('deviceFilter').addEventListener('input', renderDevices);
     document.getElementById('clearDeviceFilter').addEventListener('click', () => { document.getElementById('deviceFilter').value=''; renderDevices(); });
     document.getElementById('severityFilter').addEventListener('change', renderEvents);
@@ -1476,6 +1723,10 @@
     });
     document.getElementById('closeUserDetail').addEventListener('click', () => {
       document.getElementById('userDetailCard').style.display = 'none';
+    });
+    document.getElementById('setupLoginBtn').addEventListener('click', () => {
+      document.getElementById('loginError').textContent =
+        'Initial vault setup is available from the desktop setup command.';
     });
     document.getElementById('rotateEnrollBtn').addEventListener('click', () => postAction('/v1/enrollment-token/rotate', 'enrollResult'));
     document.getElementById('rotateTokenBtn').addEventListener('click', () => {
@@ -1491,12 +1742,56 @@
       postAction(`/v1/agents/${id}/restore`, 'opsResult');
     });
 
+    document.getElementById('loginForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const key = document.getElementById('loginApiKey').value.trim();
+      const submit = document.getElementById('loginSubmit');
+      const error = document.getElementById('loginError');
+      if (!key) return;
+      document.getElementById('apiKey').value = key;
+      submit.disabled = true;
+      submit.textContent = 'Verifying access…';
+      error.textContent = '';
+      try {
+        await api('/v1/enterprise/summary');
+        localStorage.setItem('vaultx_admin_key', key);
+        document.getElementById('loginScreen').classList.add('hidden');
+        await refreshConsole();
+      } catch (err) {
+        error.textContent = 'Access denied. Check the administrator key and try again.';
+        document.getElementById('apiKey').value = '';
+      } finally {
+        submit.disabled = false;
+        submit.textContent = 'Access secure console →';
+      }
+    });
+
     // Restore saved key
     const saved = localStorage.getItem('vaultx_admin_key');
     if (saved) {
+      document.getElementById('loginApiKey').value = saved;
       document.getElementById('apiKey').value = saved;
       document.getElementById('authState').textContent = 'Admin key loaded from browser storage.';
-      refreshConsole();
+    }
+
+    // A successful native five-layer login hands the dashboard a one-process
+    // local key through the URL fragment, which is never sent over HTTP.
+    const desktopKey = new URLSearchParams(location.hash.slice(1)).get('desktop_key');
+    if (desktopKey) {
+      history.replaceState(null, '', location.pathname);
+      document.getElementById('loginApiKey').value = desktopKey;
+      document.getElementById('apiKey').value = desktopKey;
+      localStorage.setItem('vaultx_admin_key', desktopKey);
+      (async () => {
+        try {
+          await api('/v1/enterprise/summary');
+          document.getElementById('loginScreen').classList.add('hidden');
+          await refreshConsole();
+        } catch (err) {
+          document.getElementById('loginError').textContent =
+            'The authenticated desktop session could not open the dashboard.';
+        }
+      })();
     }
   </script>
 </body>

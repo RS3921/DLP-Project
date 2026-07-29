@@ -359,12 +359,11 @@ class BehavioralLayer:
         """
         if not self._baseline_stats:
             # No baseline: auto-pass with note (first-time setup)
-            print("[Layer C] ⚠ No baseline — auto-pass. Run calibration to enable.")
-            return True, 1.0
+            print("[Layer C] ✗ No behavioral baseline.")
+            return False, 0.0
 
         if timings is None:
-            # Collect live sample
-            timings = self.collect_timing_sample("Behavioral verification:")
+            return False, 0.0
 
         if not timings or len(timings) < 5:
             print("[Layer C] ✗ Insufficient timing data.")
@@ -511,6 +510,9 @@ class GeofenceLayer:
         self._registered_devices: list[str] = []
         self._allowed_ips: list[str] = []
         self._geofence_enabled: bool = False
+        self._latitude: Optional[float] = None
+        self._longitude: Optional[float] = None
+        self._radius_meters: float = 500.0
 
     def register_device(self, device_hash: str):
         """Register a device fingerprint as trusted."""
@@ -524,6 +526,31 @@ class GeofenceLayer:
         self._geofence_enabled = True
         print(f"[Layer E] IP whitelisted: {ip}")
 
+    def register_location(self, latitude: float, longitude: float, radius_meters: float = 500.0):
+        """Enroll the permitted geographic center and radius."""
+        latitude, longitude = float(latitude), float(longitude)
+        radius_meters = float(radius_meters)
+        if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+            raise ValueError("Invalid geofence coordinates.")
+        if not 50 <= radius_meters <= 100_000:
+            raise ValueError("Geofence radius must be between 50 and 100,000 meters.")
+        self._latitude = latitude
+        self._longitude = longitude
+        self._radius_meters = radius_meters
+        self._geofence_enabled = True
+
+    @staticmethod
+    def _distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        earth_radius = 6_371_000.0
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        delta_phi = math.radians(lat2 - lat1)
+        delta_lambda = math.radians(lon2 - lon1)
+        value = (
+            math.sin(delta_phi / 2) ** 2
+            + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+        )
+        return earth_radius * 2 * math.atan2(math.sqrt(value), math.sqrt(1 - value))
+
     def get_current_ip(self) -> str:
         """Get the machine's current public IP address."""
         try:
@@ -534,7 +561,7 @@ class GeofenceLayer:
         except Exception:
             return "unknown"
 
-    def verify(self, device_hash: str) -> bool:
+    def verify(self, device_hash: str, location: Optional[dict] = None) -> bool:
         """
         Verify device is registered.
         Optionally verify IP is within geofence.
@@ -544,20 +571,40 @@ class GeofenceLayer:
             print(f"[Layer E] ✗ Unregistered device: {device_hash[:16]}...")
             return False
 
-        # Check geofence (if enabled)
-        if self._geofence_enabled and self._allowed_ips:
+        if self._geofence_enabled and self._latitude is not None and self._longitude is not None:
+            if not location:
+                print("[Layer E] ✗ Current location evidence is required.")
+                return False
+            try:
+                latitude = float(location["latitude"])
+                longitude = float(location["longitude"])
+                accuracy = max(0.0, float(location.get("accuracy", 0.0)))
+            except (KeyError, TypeError, ValueError):
+                print("[Layer E] ✗ Invalid current location evidence.")
+                return False
+            distance = self._distance_meters(
+                self._latitude, self._longitude, latitude, longitude
+            )
+            maximum_usable_accuracy = max(self._radius_meters * 10, 10_000.0)
+            if accuracy > maximum_usable_accuracy:
+                print("[Layer E] ✗ Location accuracy is insufficient for this geofence.")
+                return False
+            # Windows desktops commonly return Wi-Fi/IP-derived coordinates.
+            # Use the reported accuracy as a bounded uncertainty radius.
+            allowed_distance = self._radius_meters + min(accuracy, 5_000.0)
+            if distance > allowed_distance:
+                print(f"[Layer E] ✗ Outside geofence ({distance:.0f}m away).")
+                return False
+            print(f"[Layer E] ✓ Within geofence ({distance:.0f}m away).")
+        elif self._geofence_enabled and self._allowed_ips:
             current_ip = self.get_current_ip()
             ip_ok = any(
                 current_ip.startswith(allowed) or current_ip == allowed
                 for allowed in self._allowed_ips
             )
             if not ip_ok:
-                print(
-                    f"[Layer E] ⚠ Outside geofence. IP={current_ip}. "
-                    f"Access granted but alert sent."
-                )
-                # In production: send alert to owner here
-                # We still pass but log it
+                print(f"[Layer E] ✗ Outside geofence. IP={current_ip}.")
+                return False
             else:
                 print(f"[Layer E] ✓ Within geofence. IP={current_ip}")
 
@@ -569,9 +616,15 @@ class GeofenceLayer:
             "registered_devices": self._registered_devices,
             "allowed_ips": self._allowed_ips,
             "geofence_enabled": self._geofence_enabled,
+            "latitude": self._latitude,
+            "longitude": self._longitude,
+            "radius_meters": self._radius_meters,
         }
 
     def load(self, data: dict):
         self._registered_devices = data.get("registered_devices", [])
         self._allowed_ips = data.get("allowed_ips", [])
         self._geofence_enabled = data.get("geofence_enabled", False)
+        self._latitude = data.get("latitude")
+        self._longitude = data.get("longitude")
+        self._radius_meters = float(data.get("radius_meters", 500.0))

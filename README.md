@@ -160,6 +160,28 @@ vault> exit
 
 ---
 
+## Native Desktop Admin Application
+
+Run the admin console, including Compliance, in its own desktop window:
+
+```powershell
+python app_gui/webview_app.py
+```
+
+The first launch installs the `pywebview` window runtime if it is not already
+available. VAULT-X starts its local service inside the application and shuts it
+down when the window closes. It does not open an external browser.
+
+The default local administrator key is:
+
+```text
+vaultx-local-dev-key
+```
+
+Set `VAULTX_API_KEY` before launching to use a different key.
+
+---
+
 ## Server Mode
 
 VAULT-X can also run as a local HTTP service for server-side automation:

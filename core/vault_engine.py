@@ -203,6 +203,20 @@ class VaultEngine:
                 pass
             print("[VAULT-X] New signing key generated.")
 
+    def sign_audit_entry(self, data: dict) -> str:
+        """
+        Sign an audit-ledger entry with the vault's Ed25519 signing key.
+
+        Used as the ``sign_fn`` callback for AuditLedger so every audit
+        record is cryptographically signed, matching the same signing
+        pattern used for session tokens.
+
+        Returns a base64-encoded Ed25519 signature string.
+        """
+        payload_bytes = json.dumps(data, sort_keys=True).encode("utf-8")
+        signature = self._signing_key.sign(payload_bytes)
+        return base64.b64encode(signature).decode("utf-8")
+
     # ── Session Key Derivation ───────────────────────────────────────
 
     def derive_session_key(self, owner_hash: str, session_id: str) -> bytes:
@@ -520,6 +534,84 @@ class VaultEngine:
             raise
 
     # ── Utilities ────────────────────────────────────────────────────
+
+    def encrypt_file_payload(
+        self, plaintext: bytes, original_name: str, token: SessionToken
+    ) -> dict:
+        """Create a durable authenticated package that survives app restarts."""
+        if not self.validate_session_token(token):
+            raise PermissionError("[VAULT-X] Invalid or expired session token.")
+
+        salt = secrets.token_bytes(32)
+        chacha_nonce = secrets.token_bytes(12)
+        aes_nonce = secrets.token_bytes(12)
+        metadata = {
+            "format": "VAULTX_FILE",
+            "version": 1,
+            "original_name": os.path.basename(original_name),
+            "original_size": len(plaintext),
+            "created_at": time.time(),
+        }
+        aad = json.dumps(metadata, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        key_material = HKDF(
+            algorithm=hashes.SHA256(),
+            length=64,
+            salt=salt,
+            info=b"vaultx-durable-file-v1",
+            backend=default_backend(),
+        ).derive(self._master_key)
+        inner = ChaCha20Poly1305(key_material[:32]).encrypt(
+            chacha_nonce, plaintext, aad
+        )
+        outer = AESGCM(key_material[32:]).encrypt(aes_nonce, inner, aad)
+        return {
+            **metadata,
+            "algorithm": "ChaCha20-Poly1305+AES-256-GCM",
+            "salt": base64.b64encode(salt).decode("ascii"),
+            "chacha_nonce": base64.b64encode(chacha_nonce).decode("ascii"),
+            "aes_nonce": base64.b64encode(aes_nonce).decode("ascii"),
+            "ciphertext": base64.b64encode(outer).decode("ascii"),
+        }
+
+    def decrypt_file_payload(self, package: dict, token: SessionToken) -> tuple[bytes, str]:
+        """Verify and decrypt a durable VAULT-X file package."""
+        if not self.validate_session_token(token):
+            raise PermissionError("[VAULT-X] Invalid or expired session token.")
+        if package.get("format") != "VAULTX_FILE" or package.get("version") != 1:
+            raise ValueError("This is not a supported VAULT-X file.")
+
+        metadata = {
+            "format": package["format"],
+            "version": package["version"],
+            "original_name": os.path.basename(str(package["original_name"])),
+            "original_size": int(package["original_size"]),
+            "created_at": float(package["created_at"]),
+        }
+        aad = json.dumps(metadata, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        try:
+            salt = base64.b64decode(package["salt"], validate=True)
+            chacha_nonce = base64.b64decode(package["chacha_nonce"], validate=True)
+            aes_nonce = base64.b64decode(package["aes_nonce"], validate=True)
+            ciphertext = base64.b64decode(package["ciphertext"], validate=True)
+            key_material = HKDF(
+                algorithm=hashes.SHA256(),
+                length=64,
+                salt=salt,
+                info=b"vaultx-durable-file-v1",
+                backend=default_backend(),
+            ).derive(self._master_key)
+            inner = AESGCM(key_material[32:]).decrypt(aes_nonce, ciphertext, aad)
+            plaintext = ChaCha20Poly1305(key_material[:32]).decrypt(
+                chacha_nonce, inner, aad
+            )
+        except Exception as exc:
+            raise ValueError(
+                "File authentication failed. The vault file is damaged, altered, "
+                "or belongs to a different VAULT-X installation."
+            ) from exc
+        if len(plaintext) != metadata["original_size"]:
+            raise ValueError("File size verification failed.")
+        return plaintext, metadata["original_name"]
 
     def hash_identity(self, raw_identity: str) -> str:
         """

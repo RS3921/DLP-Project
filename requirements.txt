@@ -9,5 +9,11 @@ cryptography>=41.0.0
 # OS-level file system watching for copy detection (REQUIRED for daemon)
 watchdog>=3.0.0
 
+# Native desktop window for app_gui/webview_app.py
+pywebview>=6.2.1
+
+# Offline authenticator QR generation
+qrcode[pil]>=8.0
+
 # tkinter is included with Python on Windows — no install needed
 # If on Linux: sudo apt install python3-tk

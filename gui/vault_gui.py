@@ -43,21 +43,21 @@ from relocation.relocator import Relocator, LocationRegistry
 VAULT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "my_vault")
 DAEMON_LOG = os.path.join(VAULT_DIR, "daemon_alerts.log")
 
-# ── Color Palette ─────────────────────────────────────────────────────────────
-BG_DARK = "#0D1117"
-BG_PANEL = "#161B22"
-BG_CARD = "#1C2333"
-BG_INPUT = "#21262D"
-ACCENT = "#58A6FF"
-ACCENT2 = "#3FB950"
-WARN = "#D29922"
-DANGER = "#F85149"
-TEXT_PRI = "#E6EDF3"
-TEXT_SEC = "#8B949E"
-TEXT_DIM = "#484F58"
-BORDER = "#30363D"
-PURPLE = "#BC8CFF"
-TEAL = "#39D353"
+# ── Color Palette ── VAULT-X Black/Red Theme ───────────────────────────────────
+BG_DARK = "#0A0000"
+BG_PANEL = "#120404"
+BG_CARD = "#1A0707"
+BG_INPUT = "#210A0A"
+ACCENT = "#E02020"
+ACCENT2 = "#22F0A0"
+WARN = "#FFB740"
+DANGER = "#FF3333"
+TEXT_PRI = "#F5F0F0"
+TEXT_SEC = "#A08080"
+TEXT_DIM = "#5A3838"
+BORDER = "#3A1414"
+PURPLE = "#FF8888"
+TEAL = "#22F0A0"
 
 FONT_TITLE = ("Segoe UI", 22, "bold")
 FONT_HEAD = ("Segoe UI", 13, "bold")
@@ -79,13 +79,13 @@ def styled_btn(parent, text, cmd, color=ACCENT, width=18, small=False):
         text=text,
         command=cmd,
         bg=color,
-        fg=BG_DARK if color in (ACCENT, ACCENT2, WARN) else TEXT_PRI,
+        fg=BG_DARK if color in (ACCENT2, WARN) else TEXT_PRI,
         font=("Segoe UI", fsize, "bold"),
         relief="flat",
         bd=0,
         cursor="hand2",
         activebackground=color,
-        activeforeground=BG_DARK,
+        activeforeground=BG_DARK if color in (ACCENT2, WARN) else TEXT_PRI,
         padx=14,
         pady=6,
         width=width,
@@ -309,37 +309,35 @@ class LoginScreen(tk.Frame):
 
             # Layer A
             upd("A", "running", 10)
-            results["A"] = gw._totp.verify(totp)
+            results["A"] = gw.totp.verify(totp)
             upd("A", "pass" if results["A"] else "fail", 20)
             time.sleep(0.3)
 
             # Layer B
             upd("B", "running", 30)
-            results["B"] = gw._biometric.verify(pwd)
+            results["B"] = gw.biometric.verify(pwd)
             upd("B", "pass" if results["B"] else "fail", 40)
             time.sleep(0.3)
 
             # Layer C
             upd("C", "running", 50)
-            b_pass, b_score = gw._behavioral.verify(
-                timings=None if gw._behavioral._calibrated else []
-            )
+            b_pass, b_score = gw.behavioral.verify()
             results["C"] = b_pass
             upd("C", "pass" if results["C"] else "fail", 60)
             time.sleep(0.3)
 
             # Layer D
             upd("D", "running", 70)
-            ch = gw._zkp.generate_challenge()
-            pr = gw._zkp.prove(ch)
-            results["D"] = gw._zkp.verify_proof(ch, pr)
+            ch = gw.zkp.generate_challenge()
+            pr = gw.zkp.prove(ch)
+            results["D"] = gw.zkp.verify_proof(ch, pr)
             upd("D", "pass" if results["D"] else "fail", 80)
             time.sleep(0.3)
 
             # Layer E
             upd("E", "running", 90)
             device_hash = get_device_fingerprint()
-            geo_pass, _ = gw._geofence.verify(device_hash)
+            geo_pass = gw.geofence.verify(device_hash)
             results["E"] = geo_pass
             upd("E", "pass" if results["E"] else "fail", 100)
             time.sleep(0.3)
